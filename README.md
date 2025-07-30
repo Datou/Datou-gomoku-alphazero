@@ -6,9 +6,6 @@
 
 本人并不会编程，本程序代码全部由Gemini Pro 2.5生成，如遇bug请询问Gemini，它会耐心解答并提供程序补丁。
 
-初始的随机参数AI模型大概率会贴边落子，这对于CNN网络和蒙特卡洛搜索算法而言是正常现象，随着新模型战胜旧模型不断迭代，AI会慢慢走出边角。
-<img width="1822" height="1570" alt="image" src="https://github.com/user-attachments/assets/f929a6b9-16a2-4eaa-9e5e-7ec5f7c1757f" />
-
 
 ## 🌟 核心特性
 
@@ -29,9 +26,13 @@
 <img width="1974" height="1422" alt="image" src="https://github.com/user-attachments/assets/cbc7c3d6-0c6b-4d06-969d-7c56f6d494a9" />
 
 
--   📊 **可视化分析 (Visualization)**: 能够生成并保存模型在不同阶段的策略热力图（Policy Heatmap），直观地展示AI对开局走法的理解。
+-   📊 **可视化分析 (Visualization)**: 能够生成并保存模型在不同阶段的策略热力图（Policy Heatmap），直观地展示AI对开局走法的理解。初始的随机参数AI模型大概率会贴边落子，这对于CNN网络和蒙特卡洛搜索算法而言是正常现象，随着新模型战胜旧模型不断迭代，AI会慢慢走出边角。
+<img width="1822" height="1570" alt="image" src="https://github.com/user-attachments/assets/f929a6b9-16a2-4eaa-9e5e-7ec5f7c1757f" />
+
 
 -   📈 **命令行调度器 (Command-Line Scheduler)**: 程序启动时会提供一个交互式菜单，智能地引导用户选择下一个动作（如“开始自对弈”或“继续训练”），使复杂的训练流程管理变得简单清晰。
+<img width="2350" height="1225" alt="image" src="https://github.com/user-attachments/assets/815bbc5b-082d-4513-b19a-0dc056d50398" />
+
 
 ## 🛠️ 技术栈
 
