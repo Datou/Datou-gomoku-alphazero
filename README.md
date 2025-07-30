@@ -7,6 +7,7 @@
 本人并不会编程，本程序代码全部由Gemini Pro 2.5生成，如遇bug请询问Gemini，它会耐心解答并提供程序补丁。
 
 初始的随机参数AI模型大概率会贴边落子，这对于CNN网络和蒙特卡洛搜索算法而言是正常现象，随着新模型战胜旧模型不断迭代，AI会慢慢走出边角。
+<img width="1822" height="1570" alt="image" src="https://github.com/user-attachments/assets/f929a6b9-16a2-4eaa-9e5e-7ec5f7c1757f" />
 
 
 ## 🌟 核心特性
