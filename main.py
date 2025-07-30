@@ -33,6 +33,8 @@ import threading
 import webbrowser
 import json
 import glob
+import matplotlib
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
