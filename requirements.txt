@@ -1,0 +1,26 @@
+# 核心深度学习与数值计算库
+torch
+numpy
+
+# 用于加速MCTS和游戏核心逻辑
+numba
+
+# 用于超参数自动搜索
+optuna
+
+# 用于Web可视化界面
+Flask
+matplotlib
+seaborn
+
+# 用于命令行界面美化（进度条、颜色）
+tqdm
+colorama
+
+# 用于训练过程的可视化日志
+tensorboard
+
+# 注意：
+# 如果您希望在NVIDIA GPU上运行，请确保按照PyTorch官方网站的指导，
+# 安装与您的CUDA版本相匹配的torch版本。
+# 例如: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
