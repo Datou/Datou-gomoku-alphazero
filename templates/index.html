@@ -117,6 +117,11 @@
         #win-rate-chart-container {
             margin-top: 15px;
         }
+        .setup-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -133,6 +138,7 @@
             <h3>Mode</h3>
             <div class="player-controls">
                 <button id="btn-replay-mode" class="active">Replay</button>
+                <button id="btn-live-mode">Live</button>
                 <button id="btn-play-mode">Play</button>
             </div>
         </div>
@@ -153,21 +159,36 @@
                 </div>
             </div>
         </div>
+        
         <div id="info-panel">Loading replay info...</div>
-        <div id="play-controls" class="control-group" style="display: none;">
-            <h3>Play Controls</h3>
-            <!-- 为这个容器添加一个ID，方便JS选择 -->
-            <div id="color-selection-controls" class="player-controls">
+        
+        <div id="main-controls" class="control-group" style="display: none;">
+            <h3 id="main-controls-title"></h3>
+            
+            <div id="live-setup-controls" class="setup-controls">
+                <div>
+                    <label for="live-black-model-selector" style="display: block; margin-bottom: 5px;">⚫ Model:</label>
+                    <select id="live-black-model-selector" style="width: 100%;"></select>
+                </div>
+                <div>
+                    <label for="live-white-model-selector" style="display: block; margin-bottom: 5px;">⚪ Model:</label>
+                    <select id="live-white-model-selector" style="width: 100%;"></select>
+                </div>
+                <button id="btn-live-start-stop" style="margin-top: 10px; width: 100%;">Start Battle</button>
+            </div>
+
+            <div id="play-setup-controls" class="player-controls">
                 <button id="btn-play-black">Play as ⚫</button>
                 <button id="btn-play-white">Play as ⚪</button>
             </div>
-            <!-- 修改：初始时隐藏Reset按钮 -->
             <button id="btn-reset" style="margin-top: 10px; width: 100%; display: none;">Reset Game</button>
+            
             <div id="win-rate-chart-container">
                 <canvas id="win-rate-chart"></canvas>
             </div>
         </div>
-        <div id="status-panel" style="display: none;">Select your color to start.</div>
+        
+        <div id="status-panel" style="display: none;"></div>
     </div>
 </div>
 
@@ -191,33 +212,209 @@ canvas.height = CANVAS_DIMENSION;
 let currentMode = 'replay', replayData = null, currentReplayStep = 0;
 let isAutoPlaying = false, autoPlayInterval = null, autoPlaySpeed = 1000;
 let board = [], moveHistory = [], playerColor = null, isPlayerTurn = false, isGameOver = false;
+let isLiveGameRunning = false;
 
 const infoPanel = document.getElementById('info-panel');
 const statusPanel = document.getElementById('status-panel');
 const replaySelector = document.getElementById('replay-selector');
-
-// 为方便控制，获取按钮和容器的引用
-const colorSelectionControls = document.getElementById('color-selection-controls');
+const playSetupControls = document.getElementById('play-setup-controls');
 const btnReset = document.getElementById('btn-reset');
-
 
 let winRateChart = null, blackWinRateHistory = [];
 
 /******************************************************************************************
- * Part 2: Drawing Functions (Minified for readability)
+ * Part 2: Drawing Functions (FIXED)
  ******************************************************************************************/
-function drawGrid(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#000';ctx.lineWidth=1;for(let i=0;i<BOARD_SIZE;i++){const p=MARGIN+i*CELL_SIZE;ctx.beginPath();ctx.moveTo(p,MARGIN);ctx.lineTo(p,MARGIN+(BOARD_SIZE-1)*CELL_SIZE);ctx.stroke();ctx.beginPath();ctx.moveTo(MARGIN,p);ctx.lineTo(MARGIN+(BOARD_SIZE-1)*CELL_SIZE,p);ctx.stroke()}ctx.font='16px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#000';for(let c=0;c<BOARD_SIZE;c++){const x=MARGIN+c*CELL_SIZE;const y=MARGIN+(BOARD_SIZE-1)*CELL_SIZE+(MARGIN*.75);ctx.fillText(String.fromCharCode(65+c),x,y)}for(let r=0;r<BOARD_SIZE;r++){const y=MARGIN+(BOARD_SIZE-1-r)*CELL_SIZE;const x=MARGIN+(BOARD_SIZE-1)*CELL_SIZE+(MARGIN*.75);ctx.fillText(''+(r+1),x,y)}}
-function drawStone(row,col,color,moveNumber=null){const x=MARGIN+col*CELL_SIZE;const y=MARGIN+row*CELL_SIZE;ctx.font=`${CELL_SIZE*.9}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';const stoneChar=color===1?'⚫':'⚪';ctx.fillText(stoneChar,x,y);if(moveNumber!==null){ctx.fillStyle=color===1?'#fff':'#000';ctx.font=`bold ${CELL_SIZE*.4}px Arial`;ctx.fillText(String(moveNumber),x,y)}}
-function drawReplayBoard(){drawGrid();if(!replayData)return;const movesToDraw=replayData.moves.slice(0,currentReplayStep);movesToDraw.forEach(([r,c],index)=>{const player=index%2===0?1:-1;drawStone(r,c,player,index+1)})}
-function redrawPlayBoard(){drawGrid();moveHistory.forEach((move,index)=>{const[r,c]=move;const color=board[r][c];if(color!==0){drawStone(r,c,color,index+1)}})}
-function highlightLastMove(row,col){if(row===undefined||col===undefined)return;const x=MARGIN+col*CELL_SIZE;const y=MARGIN+row*CELL_SIZE;ctx.beginPath();ctx.strokeStyle='red';ctx.lineWidth=2;ctx.strokeRect(x-CELL_SIZE/2,y-CELL_SIZE/2,CELL_SIZE,CELL_SIZE)}
-function drawHoverStone(row,col,color){const x=MARGIN+col*CELL_SIZE;const y=MARGIN+row*CELL_SIZE;ctx.save();ctx.globalAlpha=.5;drawStone(row,col,color);ctx.restore()}
+function drawGrid() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < BOARD_SIZE; i++) {
+        const p = MARGIN + i * CELL_SIZE;
+        ctx.beginPath();
+        ctx.moveTo(p, MARGIN);
+        ctx.lineTo(p, MARGIN + (BOARD_SIZE - 1) * CELL_SIZE);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(MARGIN, p);
+        ctx.lineTo(MARGIN + (BOARD_SIZE - 1) * CELL_SIZE, p);
+        ctx.stroke()
+    }
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    for (let c = 0; c < BOARD_SIZE; c++) {
+        const x = MARGIN + c * CELL_SIZE;
+        const y = MARGIN + (BOARD_SIZE - 1) * CELL_SIZE + (MARGIN * .75);
+        ctx.fillText(String.fromCharCode(65 + c), x, y)
+    }
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        const y = MARGIN + (BOARD_SIZE - 1 - r) * CELL_SIZE;
+        const x = MARGIN + (BOARD_SIZE - 1) * CELL_SIZE + (MARGIN * .75);
+        ctx.fillText('' + (r + 1), x, y)
+    }
+}
+function drawStone(row, col, color, moveNumber = null) {
+    const x = MARGIN + col * CELL_SIZE;
+    const y = MARGIN + row * CELL_SIZE;
+    ctx.font = `${CELL_SIZE*.9}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const stoneChar = color === 1 ? '⚫' : '⚪';
+    ctx.fillText(stoneChar, x, y);
+    if (moveNumber !== null) {
+        ctx.fillStyle = color === 1 ? '#fff' : '#000';
+        ctx.font = `bold ${CELL_SIZE*.4}px Arial`;
+        ctx.fillText(String(moveNumber), x, y)
+    }
+}
+function drawReplayBoard() {
+    drawGrid();
+    if (!replayData) return;
+    const movesToDraw = replayData.moves.slice(0, currentReplayStep);
+    movesToDraw.forEach(([r, c], index) => {
+        const player = index % 2 === 0 ? 1 : -1;
+        drawStone(r, c, player, index + 1)
+    })
+}
+function redrawPlayBoard() {
+    drawGrid();
+    moveHistory.forEach((move, index) => {
+        const [r, c] = move;
+        const color = board[r][c];
+        if (color !== 0) {
+            drawStone(r, c, color, index + 1)
+        }
+    })
+}
+function highlightLastMove(row, col) {
+    if (row === undefined || col === undefined) return;
+    const x = MARGIN + col * CELL_SIZE;
+    const y = MARGIN + row * CELL_SIZE;
+    ctx.beginPath();
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - CELL_SIZE / 2, y - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE)
+}
+function drawHoverStone(row, col, color) {
+    const x = MARGIN + col * CELL_SIZE;
+    const y = MARGIN + row * CELL_SIZE;
+    ctx.save();
+    ctx.globalAlpha = .5;
+    drawStone(row, col, color);
+    ctx.restore()
+}
+
 
 /******************************************************************************************
  * Part 3: Win Rate Chart Functions
  ******************************************************************************************/
-function initWinRateChart(){const chartCanvas=document.getElementById('win-rate-chart');if(winRateChart){winRateChart.destroy()}winRateChart=new Chart(chartCanvas,{type:'line',data:{labels:[],datasets:[{label:'Black Win Rate',data:[],borderColor:'rgba(0, 0, 0, 0.8)',backgroundColor:'rgba(0, 0, 0, 0.1)',borderWidth:2,tension:.4,fill:true,pointBackgroundColor:'rgba(0, 0, 0, 1)',pointRadius:3,pointHoverRadius:6},{label:'White Win Rate',data:[],borderColor:'rgba(150, 150, 150, 0.8)',backgroundColor:'rgba(200, 200, 200, 0.1)',borderWidth:2,tension:.4,fill:true,pointBackgroundColor:'rgba(255, 255, 255, 1)',pointBorderColor:'rgba(0, 0, 0, 1)',pointRadius:3,pointHoverRadius:6}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:100,ticks:{callback:value=>value+'%',stepSize:50},grid:{color:'rgba(0, 0, 0, 0.05)'}},x:{title:{display:false},grid:{display:false}}},plugins:{title:{display:true,text:'Win Rate',font:{size:16,weight:'bold'},padding:{top:5,bottom:15}},legend:{display:false},tooltip:{enabled:true,mode:'index',intersect:false,callbacks:{label:function(context){let label=context.dataset.label||'';if(label){label+=': '}if(context.parsed.y!==null){label+=context.parsed.y.toFixed(1)+'%'}return label}}}}}})}
-function updateWinRateChart(){if(!winRateChart)return;const whiteWinRateHistory=blackWinRateHistory.map(rate=>100-rate);winRateChart.data.labels=Array.from({length:blackWinRateHistory.length},(_,i)=>i);winRateChart.data.datasets[0].data=blackWinRateHistory;winRateChart.data.datasets[1].data=whiteWinRateHistory;winRateChart.update()}
+function initWinRateChart() {
+    const chartCanvas = document.getElementById('win-rate-chart');
+    if (winRateChart) {
+        winRateChart.destroy()
+    }
+    winRateChart = new Chart(chartCanvas, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Black Win Rate',
+                data: [],
+                borderColor: 'rgba(0, 0, 0, 0.8)',
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 2,
+                tension: .4,
+                fill: true,
+                pointBackgroundColor: 'rgba(0, 0, 0, 1)',
+                pointRadius: 3,
+                pointHoverRadius: 6
+            }, {
+                label: 'White Win Rate',
+                data: [],
+                borderColor: 'rgba(150, 150, 150, 0.8)',
+                backgroundColor: 'rgba(200, 200, 200, 0.1)',
+                borderWidth: 2,
+                tension: .4,
+                fill: true,
+                pointBackgroundColor: 'rgba(255, 255, 255, 1)',
+                pointBorderColor: 'rgba(0, 0, 0, 1)',
+                pointRadius: 3,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        callback: value => value + '%',
+                        stepSize: 50
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: false
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Win Rate',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    padding: {
+                        top: 5,
+                        bottom: 15
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': '
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toFixed(1) + '%'
+                            }
+                            return label
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+function updateWinRateChart() {
+    if (!winRateChart) return;
+    const whiteWinRateHistory = blackWinRateHistory.map(rate => 100 - rate);
+    winRateChart.data.labels = Array.from({
+        length: blackWinRateHistory.length
+    }, (_, i) => i + 1);
+    winRateChart.data.datasets[0].data = blackWinRateHistory;
+    winRateChart.data.datasets[1].data = whiteWinRateHistory;
+    winRateChart.update()
+}
 
 /******************************************************************************************
  * Part 4: Replay Mode Logic
@@ -226,194 +423,325 @@ async function fetchReplayList() {
     const replayControlElements = document.querySelectorAll('#replay-controls button, #replay-controls select, #replay-controls input');
     try {
         const res = await fetch('/get_replay_list');
-        const replayFiles = await res.json(); // <-- 现在接收的是对象列表
+        const replayFiles = await res.json();
         replaySelector.innerHTML = '';
-        
         if (replayFiles.length === 0) {
             replaySelector.innerHTML = '<option disabled selected>No replay files found</option>';
             infoPanel.textContent = 'No replay files available.';
             replayControlElements.forEach(el => el.disabled = true);
-            return;
+            return
         }
-
         replayControlElements.forEach(el => el.disabled = false);
-        
         replayFiles.forEach(file => {
             const opt = document.createElement('option');
-            // [核心修改] value现在是完整的文件路径
-            opt.value = file.path; 
-            // [核心修改] 显示更友好的文本
-            opt.textContent = `Iter ${file.iter} - ${file.name}`; 
-            replaySelector.appendChild(opt);
+            opt.value = file.path;
+            opt.textContent = `Iter ${file.iter} - ${file.name}`;
+            replaySelector.appendChild(opt)
         });
-
-        // 加载最新的一个回放
         if (replayFiles.length > 0) {
-            loadReplay(replayFiles[0].path);
+            loadReplay(replayFiles[0].path)
         }
     } catch (e) {
         console.error("Failed to fetch replay list:", e);
         replaySelector.innerHTML = '<option disabled selected>Error loading replays</option>';
         infoPanel.textContent = 'Failed to fetch replay list.';
-        replayControlElements.forEach(el => el.disabled = true);
+        replayControlElements.forEach(el => el.disabled = true)
     }
 }
-async function loadReplay(filename) { // <-- 参数从 iterNum 变为 filename
+async function loadReplay(filename) {
     if (!filename) return;
     try {
-        // [核心修改] URL现在直接使用完整的文件名
-        const res = await fetch(`/load_replay/${filename}`); 
+        const res = await fetch(`/load_replay/${filename}`);
         replayData = await res.json();
         currentReplayStep = 0;
         updateReplayView();
-        startAutoPlay();
+        startAutoPlay()
     } catch (e) {
-        console.error(`Failed to load replay file ${filename}:`, e);
+        console.error(`Failed to load replay file ${filename}:`, e)
     }
 }
 function updateReplayView() {
     if (!replayData) return;
     drawReplayBoard();
-    
     document.getElementById('btn-first').disabled = currentReplayStep === 0;
     document.getElementById('btn-prev').disabled = currentReplayStep === 0;
     document.getElementById('btn-next').disabled = currentReplayStep >= replayData.moves.length;
     document.getElementById('btn-last').disabled = currentReplayStep >= replayData.moves.length;
-
-    // [核心修改] 从选项的文本中获取显示信息
     const selectedOptionText = replaySelector.options[replaySelector.selectedIndex].text;
     let info = `<b>${selectedOptionText}</b><br>`;
-    
-    // ... (剩下的逻辑完全不变) ...
-    let challengerCrown = '', defenderCrown = '';
+    let challengerCrown = '',
+        defenderCrown = '';
     const isGameFinished = currentReplayStep === replayData.moves.length;
     if (isGameFinished && replayData.winner !== "Draw") {
         if (replayData.challenger_color === replayData.winner) challengerCrown = '👑';
-        if (replayData.defender_color === replayData.winner) defenderCrown = '👑';
+        if (replayData.defender_color === replayData.winner) defenderCrown = '👑'
     }
     const challengerEmoji = replayData.challenger_color === 'Black' ? '⚫' : '⚪';
     const defenderEmoji = replayData.defender_color === 'Black' ? '⚫' : '⚪';
-
     info += `Challenger: ${challengerEmoji}${challengerCrown}<br>Defender: ${defenderEmoji}${defenderCrown}<br>`;
-    
     if (currentReplayStep > 0 && currentReplayStep <= replayData.moves.length) {
         const [r, c] = replayData.moves[currentReplayStep - 1];
         highlightLastMove(r, c);
-        info += `Move ${currentReplayStep}/${replayData.moves.length}. Turn: ${currentReplayStep % 2 === 0 ? '⚪' : '⚫'}<br>`;
+        info += `Move ${currentReplayStep}/${replayData.moves.length}. Turn: ${currentReplayStep%2===0?'⚪':'⚫'}<br>`
     }
-
     if (isGameFinished && replayData.winner === "Draw") {
-        info += `Game Over. Draw`;
+        info += `Game Over. Draw`
     }
-    
-    infoPanel.innerHTML = info;
+    infoPanel.innerHTML = info
 }
-function setReplayStep(step){if(!replayData)return;currentReplayStep=Math.max(0,Math.min(step,replayData.moves.length));updateReplayView();if(currentReplayStep===replayData.moves.length)stopAutoPlay()}
-function startAutoPlay(){if(isAutoPlaying)return;isAutoPlaying=true;document.getElementById('btn-play-pause').textContent='⏸️';autoPlayInterval=setInterval(()=>setReplayStep(currentReplayStep+1),autoPlaySpeed)}
-function stopAutoPlay(){if(!isAutoPlaying)return;isAutoPlaying=false;document.getElementById('btn-play-pause').textContent='▶️';clearInterval(autoPlayInterval)}
+function setReplayStep(step) {
+    if (!replayData) return;
+    currentReplayStep = Math.max(0, Math.min(step, replayData.moves.length));
+    updateReplayView();
+    if (currentReplayStep === replayData.moves.length) stopAutoPlay()
+}
+function startAutoPlay() {
+    if (isAutoPlaying) return;
+    isAutoPlaying = true;
+    document.getElementById('btn-play-pause').textContent = '⏸️';
+    autoPlayInterval = setInterval(() => setReplayStep(currentReplayStep + 1), autoPlaySpeed)
+}
+function stopAutoPlay() {
+    if (!isAutoPlaying) return;
+    isAutoPlaying = false;
+    document.getElementById('btn-play-pause').textContent = '▶️';
+    clearInterval(autoPlayInterval)
+}
 
 /******************************************************************************************
- * Part 5: Play vs. AI Logic
+ * Part 5: Play & Live Mode Logic
  ******************************************************************************************/
-function resetPlayMode() {
-    board = Array(BOARD_SIZE).fill(0).map(()=>Array(BOARD_SIZE).fill(0));
+function _resetBoardAndChart() {
+    board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0));
     moveHistory = [];
+    isGameOver = false;
     drawGrid();
+    blackWinRateHistory = [];
+    initWinRateChart();
+    updateWinRateChart()
+}
+function resetPlayMode() {
+    _resetBoardAndChart();
     playerColor = null;
     isPlayerTurn = false;
-    isGameOver = false;
     statusPanel.textContent = 'Select your color to start.';
-    blackWinRateHistory = [50.0];
-    initWinRateChart();
-    updateWinRateChart();
-
-    // 修改：显示颜色选择按钮，隐藏重置按钮
-    colorSelectionControls.style.display = 'flex';
-    btnReset.style.display = 'none';
+    playSetupControls.style.display = 'flex';
+    btnReset.style.display = 'none'
 }
-
+function resetLiveMode() {
+    isLiveGameRunning = false;
+    _resetBoardAndChart();
+    const startStopButton = document.getElementById('btn-live-start-stop');
+    document.getElementById('live-black-model-selector').disabled = false;
+    document.getElementById('live-white-model-selector').disabled = false;
+    startStopButton.textContent = 'Start Battle';
+    startStopButton.disabled = false;
+    statusPanel.textContent = 'Select models and start the battle.'
+}
 async function startGame(userPlaysAs) {
-    // 调用 resetPlayMode 会重置按钮状态，所以我们在这里修改
-    resetPlayMode(); 
-
-    // 修改：隐藏颜色选择按钮，显示重置按钮
-    colorSelectionControls.style.display = 'none';
+    resetPlayMode();
+    playSetupControls.style.display = 'none';
     btnReset.style.display = 'block';
-
     playerColor = userPlaysAs;
     if (playerColor === 1) {
         isPlayerTurn = true;
         statusPanel.textContent = 'Your turn (⚫).';
+        blackWinRateHistory = [50.0];
+        updateWinRateChart()
     } else {
         isPlayerTurn = false;
         statusPanel.textContent = 'AI is thinking...';
-        await makeAIMove(null); 
+        await makeAIMove(null)
     }
 }
-
 async function makeAIMove(humanMove) {
     try {
         const playerToMove = humanMove ? playerColor : 1;
         const res = await fetch('/move', {
             method: 'POST',
-            headers: { 'Content-Type':'application/json' },
-            body: JSON.stringify({ board, move: humanMove, player_to_move: playerToMove })
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                board,
+                move: humanMove,
+                player_to_move: playerToMove
+            })
         });
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         const data = await res.json();
-
         if (data.black_win_rate !== undefined) {
             blackWinRateHistory.push(data.black_win_rate);
-            updateWinRateChart();
+            updateWinRateChart()
         }
-
-        if (data.ai_move){
-            const [r,c] = data.ai_move;
+        if (data.ai_move) {
+            const [r, c] = data.ai_move;
             const aiColor = playerColor * -1;
             board[r][c] = aiColor;
-            moveHistory.push([r, c]); 
+            moveHistory.push([r, c]);
             redrawPlayBoard();
-            highlightLastMove(r,c);
+            highlightLastMove(r, c)
         }
-
         if (data.game_over) {
             isGameOver = true;
             isPlayerTurn = false;
             let winnerText = data.winner === 0 ? 'Draw!' : (data.winner === playerColor ? 'You Win!' : 'AI Wins!');
-            statusPanel.textContent = `Game Over. ${winnerText}`;
+            statusPanel.textContent = `Game Over. ${winnerText}`
         } else {
             isPlayerTurn = true;
-            statusPanel.textContent = `Your turn (${playerColor===1?'⚫':'⚪'}).`;
+            statusPanel.textContent = `Your turn (${playerColor===1?'⚫':'⚪'}).`
         }
-    } catch(e) {
+    } catch (e) {
         console.error("Error during AI move:", e);
-        statusPanel.textContent = 'Error communicating with server.';
+        statusPanel.textContent = 'Error communicating with server.'
     }
 }
+async function populateLiveSelectors() {
+    const blackSelector = document.getElementById('live-black-model-selector');
+    const whiteSelector = document.getElementById('live-white-model-selector');
+    const startButton = document.getElementById('btn-live-start-stop');
+    try {
+        const res = await fetch('/get_hof_list');
+        const models = await res.json();
+        blackSelector.innerHTML = '';
+        whiteSelector.innerHTML = '';
+        if (models.length < 2) {
+            const disabledOption = '<option disabled selected>Need at least 2 models</option>';
+            blackSelector.innerHTML = disabledOption;
+            whiteSelector.innerHTML = disabledOption;
+            startButton.disabled = true;
+            statusPanel.textContent = 'At least 2 models are required for a live battle.';
+            return
+        }
+        models.forEach(model => {
+            const opt = document.createElement('option');
+            opt.value = model.path;
+            opt.textContent = model.name;
+            blackSelector.appendChild(opt.cloneNode(true));
+            whiteSelector.appendChild(opt)
+        });
+        if (models.length > 1) {
+            whiteSelector.selectedIndex = 1
+        }
+        startButton.disabled = false
+    } catch (e) {
+        console.error("Failed to fetch model list:", e);
+        const errorOption = '<option disabled selected>Error loading models</option>';
+        blackSelector.innerHTML = errorOption;
+        whiteSelector.innerHTML = errorOption;
+        startButton.disabled = true
+    }
+}
+function startLiveGame() {
+    const blackSelector = document.getElementById('live-black-model-selector');
+    const whiteSelector = document.getElementById('live-white-model-selector');
+    const startStopButton = document.getElementById('btn-live-start-stop');
+    if (!blackSelector.value || !whiteSelector.value) {
+        statusPanel.textContent = 'Please select models for both players.';
+        return
+    }
+    if (blackSelector.value === whiteSelector.value) {
+        statusPanel.textContent = 'Black and White must use different models.';
+        return
+    }
+    isLiveGameRunning = true;
+    blackSelector.disabled = true;
+    whiteSelector.disabled = true;
+    startStopButton.textContent = 'Stop Battle';
+    _resetBoardAndChart();
+    runLiveTurn(1, blackSelector.value, whiteSelector.value)
+}
+function stopLiveGame(message = 'Battle stopped by user.') {
+    isLiveGameRunning = false;
+    document.getElementById('live-black-model-selector').disabled = false;
+    document.getElementById('live-white-model-selector').disabled = false;
+    const startStopButton = document.getElementById('btn-live-start-stop');
+    startStopButton.textContent = 'Start Battle';
+    statusPanel.textContent = message
+}
+async function runLiveTurn(currentPlayer, blackModelPath, whiteModelPath) {
+    if (!isLiveGameRunning) return;
+    const currentModelName = currentPlayer === 1 ? document.getElementById('live-black-model-selector').selectedOptions[0].text : document.getElementById('live-white-model-selector').selectedOptions[0].text;
+    statusPanel.innerHTML = `Turn ${moveHistory.length + 1}: ${currentPlayer === 1 ? '⚫' : '⚪'}<br>Thinking... (${currentModelName})`;
+    try {
+        const res = await fetch('/live_move', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                board: board,
+                current_player: currentPlayer,
+                black_model_path: blackModelPath,
+                white_model_path: whiteModelPath
+            })
+        });
+        if (!res.ok || !isLiveGameRunning) {
+            if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+            return
+        }
+        const data = await res.json();
+        if (data.black_win_rate !== undefined) {
+            blackWinRateHistory.push(data.black_win_rate);
+            updateWinRateChart()
+        }
+        if (data.ai_move) {
+            const [r, c] = data.ai_move;
+            board[r][c] = currentPlayer;
+            moveHistory.push([r, c]);
+            redrawPlayBoard();
+            highlightLastMove(r, c)
+        }
+        if (data.game_over) {
+            let winnerText;
+            if (data.winner === 0) {
+                winnerText = 'Draw!'
+            } else if (data.winner === 1) {
+                winnerText = '⚫ 👑'
+            } else {
+                winnerText = '⚪ 👑'
+            }
+            stopLiveGame(`Game Over. ${winnerText}`)
+        } else {
+            setTimeout(() => runLiveTurn(currentPlayer * -1, blackModelPath, whiteModelPath), 500)
+        }
+    } catch (e) {
+        console.error("Error during live move:", e);
+        stopLiveGame('Error communicating with server.')
+    }
+}
+
 
 /******************************************************************************************
  * Part 6: Event Listeners & Initialization
  ******************************************************************************************/
 function setupEventListeners() {
-    document.getElementById('btn-replay-mode').addEventListener('click', ()=>switchMode('replay'));
-    document.getElementById('btn-play-mode').addEventListener('click', ()=>switchMode('play'));
-
-    replaySelector.addEventListener('change', (e)=>loadReplay(e.target.value));
-    document.getElementById('btn-first').addEventListener('click', ()=>setReplayStep(0));
-    document.getElementById('btn-prev').addEventListener('click', ()=>setReplayStep(currentReplayStep-1));
-    document.getElementById('btn-next').addEventListener('click', ()=>setReplayStep(currentReplayStep+1));
-    document.getElementById('btn-last').addEventListener('click', ()=>setReplayStep(replayData?replayData.moves.length:0));
-    document.getElementById('btn-play-pause').addEventListener('click', ()=>isAutoPlaying?stopAutoPlay():startAutoPlay());
-    document.getElementById('speed-slider').addEventListener('input', (e)=>{
+    document.getElementById('btn-replay-mode').addEventListener('click', () => switchMode('replay'));
+    document.getElementById('btn-live-mode').addEventListener('click', () => switchMode('live'));
+    document.getElementById('btn-play-mode').addEventListener('click', () => switchMode('play'));
+    replaySelector.addEventListener('change', (e) => loadReplay(e.target.value));
+    document.getElementById('btn-first').addEventListener('click', () => setReplayStep(0));
+    document.getElementById('btn-prev').addEventListener('click', () => setReplayStep(currentReplayStep - 1));
+    document.getElementById('btn-next').addEventListener('click', () => setReplayStep(currentReplayStep + 1));
+    document.getElementById('btn-last').addEventListener('click', () => setReplayStep(replayData ? replayData.moves.length : 0));
+    document.getElementById('btn-play-pause').addEventListener('click', () => isAutoPlaying ? stopAutoPlay() : startAutoPlay());
+    document.getElementById('speed-slider').addEventListener('input', (e) => {
         autoPlaySpeed = 1500 - (e.target.value * 140);
-        if (isAutoPlaying){ stopAutoPlay(); startAutoPlay(); }
+        if (isAutoPlaying) {
+            stopAutoPlay();
+            startAutoPlay()
+        }
     });
-
-    document.getElementById('btn-play-black').addEventListener('click', ()=>startGame(1));
-    document.getElementById('btn-play-white').addEventListener('click', ()=>startGame(-1));
-    // btn-reset的事件监听器不需要改动
+    document.getElementById('btn-live-start-stop').addEventListener('click', () => {
+        if (isLiveGameRunning) {
+            stopLiveGame()
+        } else {
+            startLiveGame()
+        }
+    });
+    document.getElementById('btn-play-black').addEventListener('click', () => startGame(1));
+    document.getElementById('btn-play-white').addEventListener('click', () => startGame(-1));
     btnReset.addEventListener('click', resetPlayMode);
-
     canvas.addEventListener('click', async (e) => {
         if (currentMode !== 'play' || !isPlayerTurn || isGameOver) return;
         const rect = canvas.getBoundingClientRect();
@@ -421,76 +749,88 @@ function setupEventListeners() {
         const y = e.clientY - rect.top;
         const c = Math.round((x - MARGIN) / CELL_SIZE);
         const r = Math.round((y - MARGIN) / CELL_SIZE);
-        if (r<0||r>=BOARD_SIZE||c<0||c>=BOARD_SIZE||board[r][c]!==0) return;
-
+        if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE || board[r][c] !== 0) return;
         isPlayerTurn = false;
         statusPanel.textContent = 'AI is thinking...';
         board[r][c] = playerColor;
         moveHistory.push([r, c]);
         redrawPlayBoard();
-        highlightLastMove(r,c);
-        
-        await makeAIMove([r,c]);
+        highlightLastMove(r, c);
+        await makeAIMove([r, c])
     });
-
-    canvas.addEventListener('mousemove', (e)=>{
+    canvas.addEventListener('mousemove', (e) => {
         if (currentMode !== 'play' || !isPlayerTurn || isGameOver) return;
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const c = Math.round((x - MARGIN) / CELL_SIZE);
         const r = Math.round((y - MARGIN) / CELL_SIZE);
-        
         redrawPlayBoard();
-        if (r>=0 && r<BOARD_SIZE && c>=0 && c<BOARD_SIZE && board[r][c]===0){
-            drawHoverStone(r, c, playerColor);
+        if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === 0) {
+            drawHoverStone(r, c, playerColor)
         }
     });
-
-    canvas.addEventListener('mouseleave', ()=>{
-        if (currentMode === 'play') redrawPlayBoard();
-    });
+    canvas.addEventListener('mouseleave', () => {
+        if (currentMode === 'play') redrawPlayBoard()
+    })
 }
 
 function switchMode(mode) {
     currentMode = mode;
     stopAutoPlay();
+    if (isLiveGameRunning) stopLiveGame();
     
     const replayControls = document.getElementById('replay-controls');
-    const playControls = document.getElementById('play-controls');
-    const btnReplay = document.getElementById('btn-replay-mode');
-    const btnPlay = document.getElementById('btn-play-mode');
+    const mainControls = document.getElementById('main-controls');
+    const liveSetup = document.getElementById('live-setup-controls');
+    const playSetup = document.getElementById('play-setup-controls');
+    const playResetBtn = document.getElementById('btn-reset');
     const boardTitle = document.getElementById('board-title');
+    const mainControlsTitle = document.getElementById('main-controls-title');
+    const allModeButtons = document.querySelectorAll('.mode-selector button');
     
-    if (mode === 'replay'){
+    allModeButtons.forEach(btn => btn.classList.remove('active'));
+    
+    replayControls.style.display = 'none';
+    mainControls.style.display = 'none';
+    infoPanel.style.display = 'none';
+    statusPanel.style.display = 'none';
+    
+    if (mode === 'replay') {
         replayControls.style.display = 'block';
         infoPanel.style.display = 'flex';
-        playControls.style.display = 'none';
-        statusPanel.style.display = 'none';
-
-        btnReplay.classList.add('active');
-        btnPlay.classList.remove('active');
+        document.getElementById('btn-replay-mode').classList.add('active');
         boardTitle.textContent = 'Replay Mode';
         canvas.classList.remove('playable');
-        fetchReplayList();
-    } else { 
-        replayControls.style.display = 'none';
-        infoPanel.style.display = 'none';
-        playControls.style.display = 'block';
+        fetchReplayList()
+    } else {
+        mainControls.style.display = 'block';
         statusPanel.style.display = 'flex';
-
-        btnReplay.classList.remove('active');
-        btnPlay.classList.add('active');
-        boardTitle.textContent = 'Play vs. AI';
-        canvas.classList.add('playable');
-        resetPlayMode();
+        if (mode === 'live') {
+            document.getElementById('btn-live-mode').classList.add('active');
+            boardTitle.textContent = 'Live Battle';
+            mainControlsTitle.textContent = 'Live Battle Controls';
+            liveSetup.style.display = 'flex';
+            playSetup.style.display = 'none';
+            playResetBtn.style.display = 'none';
+            canvas.classList.remove('playable');
+            resetLiveMode();
+            populateLiveSelectors()
+        } else {
+            document.getElementById('btn-play-mode').classList.add('active');
+            boardTitle.textContent = 'Play vs. AI';
+            mainControlsTitle.textContent = 'Play Controls';
+            liveSetup.style.display = 'none';
+            playSetup.style.display = 'flex';
+            canvas.classList.add('playable');
+            resetPlayMode()
+        }
     }
 }
-
-window.onload = ()=>{
+window.onload = () => {
     drawGrid();
     setupEventListeners();
-    switchMode('replay');
+    switchMode('replay')
 };
 </script>
 </body>
