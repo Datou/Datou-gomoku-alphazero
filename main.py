@@ -1162,8 +1162,11 @@ def main():
     args = parser.parse_args()
 
     if args.clean and os.path.exists(config.CHECKPOINT_DIR): shutil.rmtree(config.CHECKPOINT_DIR)
+    
+    # 只加载检查点，暂时不加载缓冲区
     load_checkpoint(resume=not args.clean)
-    if not args.clean: load_buffer()
+    
+    # 移除这里的 load_buffer() 调用
 
     print(f"\n{Style.BRIGHT}Gomoku AI - AlphaZero V55.9 - PID: {os.getpid()}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}[✅] System Initialized.{Style.RESET_ALL}")
@@ -1177,6 +1180,14 @@ def main():
     if os.path.exists(hof_dir):
         hof_model_count = len(glob.glob(os.path.join(hof_dir, "*.pth.tar")))
     print(f"  {Style.DIM}- Hall of Fame  : {hof_model_count} models")
+
+    # --- [关键修改] ---
+    # 将 load_buffer() 的调用移动到这里
+    if not args.clean:
+        load_buffer() # 这会打印出 "Loading...", "Sanitizing..." 等信息
+    # --------------------
+
+    # 打印缓冲区大小，此时数据已经加载完毕
     print(f"  {Style.DIM}- Buffer Size   : {len(train_data)} / {config.TRAIN_BUFFER_SIZE}")
 
     if not args.no_gui:
