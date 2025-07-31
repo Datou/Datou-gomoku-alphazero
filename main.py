@@ -124,6 +124,9 @@ scaler = torch.amp.GradScaler(enabled=(config.DEVICE.type == 'cuda'))
 train_data = {}; train_priorities = {}; train_order = deque(maxlen=config.TRAIN_BUFFER_SIZE)
 next_data_id, iteration, current_train_step = 0, 0, 0
 
+# 用于Live模式的模型缓存，避免重复加载
+live_model_cache = {}
+
 # =====================================================================
 #                      游戏与MCTS核心逻辑 (Numba 加速)
 # =====================================================================
@@ -409,8 +412,6 @@ def run_evaluation_duel(challenger_path, defender_path, desc="Eval"):
                 
                 avg_len_str = f"AvgLen:{np.mean(game_lengths):.1f}" if game_lengths else ""
                 
-                # --- [UI REFINEMENT] ---
-                # Remove the leading comma. tqdm will handle the separator. Add a leading space for padding.
                 pbar.set_postfix_str(f" ✌️{wins} 🥀{losses} 🟰{draws}, {avg_len_str}", refresh=True)
 
             except Empty: print(f"\n{Fore.RED}FATAL: Duel queue timed out!{Style.RESET_ALL}"); break
@@ -419,7 +420,6 @@ def run_evaluation_duel(challenger_path, defender_path, desc="Eval"):
     win_rate = wins / num_games if num_games > 0 else 0
     success = win_rate > config.EVAL_WIN_RATE
     
-    # --- [UI REFINEMENT] ---
     final_postfix = f" ✌️{wins} 🥀{losses} 🟰{draws}, AvgLen:{avg_game_length:.1f}"
     pbar.set_postfix_str(final_postfix)
     pbar.refresh()
@@ -489,18 +489,6 @@ def save_buffer(filepath=None):
     except Exception as e: print(f"{Fore.RED}❌ Error saving replay buffer: {e}{Style.RESET_ALL}")
 
 def load_buffer(filepath=None):
-    """
-    加载回放缓冲区文件，并包含强大的数据恢复与重建索引功能。
-    
-    [终极修复] 此版本可以处理因旧代码逻辑导致的历史遗留问题，
-    即缓冲区中存在无法转换为整数的复杂字符串键（如 'pid-timestamp-...'）。
-    
-    当检测到这种不兼容的键时，函数会自动触发“重建索引”模式：
-    1. 放弃所有旧的、混乱的键。
-    2. 提取出所有的训练数据（值）。
-    3. 从0开始，为每一条数据分配一个全新的、纯净的整数ID。
-    4. 在内存中重建一个干净、一致的缓冲区。
-    """
     global train_data, train_priorities, train_order, next_data_id
     
     if filepath is None:
@@ -512,19 +500,14 @@ def load_buffer(filepath=None):
             with open(filepath, 'rb') as f: 
                 buffer_state = pickle.load(f)
 
-            # --- [ULTIMATE RECOVERY FIX] ---
-            # 检查第一个键是否可以被转换为整数，以此来判断是否需要重建索引
             first_key = next(iter(buffer_state.get('train_data', {'0':None})), '0')
             needs_reindexing = not str(first_key).isdigit()
 
             if needs_reindexing:
                 print(f"  {Fore.YELLOW}Warning: Incompatible key format ('{first_key}') detected in buffer.{Style.RESET_ALL}")
                 print(f"  {Fore.CYAN}Action: Starting a one-time re-indexing process to recover data...{Style.RESET_ALL}")
-
-                # 提取所有的值（即 [state, pi, value] 列表）
                 loaded_train_data_values = buffer_state.get('train_data', {}).values()
                 
-                # 彻底清空全局变量，准备重建
                 train_data.clear()
                 train_priorities.clear()
                 train_order.clear()
@@ -533,24 +516,21 @@ def load_buffer(filepath=None):
                 
                 print(f"  {Style.DIM}- Re-indexing {len(loaded_train_data_values)} data points...{Style.RESET_ALL}")
                 
-                # 遍历所有数据，并分配新的整数键
-                # 为了防止缓冲区超过最大值，我们从后往前取最新的数据
                 latest_data = list(loaded_train_data_values)[-config.TRAIN_BUFFER_SIZE:]
 
                 for step_data in latest_data:
                     train_data[new_id] = step_data
-                    train_priorities[new_id] = 1.0  # 为所有恢复的数据重置优先级
+                    train_priorities[new_id] = 1.0
                     train_order.append(new_id)
                     new_id += 1
                 
-                next_data_id = new_id # 将下一个ID设置为重建后的总数
+                next_data_id = new_id
                 
                 print(f"  {Fore.GREEN}[✅] Buffer successfully re-indexed. {len(train_data)} items recovered.{Style.RESET_ALL}")
                 print(f"  {Fore.CYAN}Action: Saving the newly indexed buffer to prevent future recovery...{Style.RESET_ALL}")
-                save_buffer() # 立即保存，一劳永逸
+                save_buffer()
 
             else:
-                # 如果键是正常的，则执行之前的清理逻辑
                 print(f"  {Style.DIM}- Buffer format looks OK. Sanitizing data types...{Style.RESET_ALL}")
                 train_data = {int(k): v for k, v in buffer_state.get('train_data', {}).items()}
                 train_priorities = {int(k): v for k, v in buffer_state.get('train_priorities', {}).items()}
@@ -567,7 +547,6 @@ def load_buffer(filepath=None):
             print(f"{Fore.RED}❌ FATAL Error during buffer recovery: {e}{Style.RESET_ALL}")
             import traceback
             traceback.print_exc()
-            # 如果恢复失败，则从空缓冲区开始，防止程序陷入崩溃循环
             print(f"{Fore.YELLOW}Warning: Starting with a fresh, empty buffer due to unrecoverable error.{Style.RESET_ALL}")
             train_data, train_priorities, train_order, next_data_id = {}, {}, deque(maxlen=config.TRAIN_BUFFER_SIZE), 0
 
@@ -727,11 +706,31 @@ def load_replay(filename):
         except Exception as e: return jsonify({"error": f"Failed to load replay: {e}"}), 500
     return jsonify({"error": "Replay not found"}), 404
 
+def get_cached_model(model_relative_path):
+    """
+    从缓存中获取模型，如果缓存未命中，则从磁盘加载并存入缓存。
+    """
+    if model_relative_path in live_model_cache:
+        return live_model_cache[model_relative_path]
+    else:
+        # 在打印前后都加上换行符 \n，确保日志输出独立成行，避免与tqdm等其他日志交错。
+        print(f"\n  {Style.DIM}- Caching live model: {model_relative_path}{Style.RESET_ALL}")
+        
+        model_full_path = os.path.join(config.CHECKPOINT_DIR, model_relative_path)
+        
+        model = GomokuNet(board_size=config.BOARD_SIZE, num_res_blocks=config.NUM_RES_BLOCKS, num_filters=config.NUM_FILTERS, dropout_p=config.DROPOUT_P)
+        state_dict = torch.load(model_full_path, map_location='cpu')
+        model.load_state_dict(state_dict.get('state_dict', state_dict.get('best_model_state_dict')))
+        
+        model.to(config.DEVICE).eval()
+        
+        live_model_cache[model_relative_path] = model
+        return model
+
 @app.route('/get_hof_list')
 def get_hof_list():
     """获取名人堂模型列表，用于前端下拉菜单"""
     models_info = []
-    # 首先添加当前最优模型
     best_model_path = "best.pth.tar"
     if os.path.exists(os.path.join(config.CHECKPOINT_DIR, best_model_path)):
         models_info.append({
@@ -739,7 +738,6 @@ def get_hof_list():
             "path": best_model_path
         })
 
-    # 然后添加名人堂中的所有模型
     hof_dir = os.path.join(config.CHECKPOINT_DIR, "hall_of_fame")
     if os.path.exists(hof_dir):
         hof_files = sorted(
@@ -750,7 +748,6 @@ def get_hof_list():
         for f_path in hof_files:
             basename = os.path.basename(f_path)
             parts = basename.replace('.pth.tar', '').split('_')
-            # 预期的格式: hof_model_iter_XX_name.pth.tar
             if len(parts) >= 4:
                 try:
                     iter_num = int(parts[3])
@@ -764,76 +761,53 @@ def get_hof_list():
                     continue
     return jsonify(models_info)
 
-
 @app.route('/live_move', methods=['POST'])
 def handle_live_move():
-    """处理Live模式下的模型对战走子请求"""
+    """处理Live模式下的模型对战走子请求 (已通过模型缓存优化)"""
     PAUSE_TRAINING_EVENT.set()
-    time.sleep(0.1)
+    time.sleep(0.01)
     
     ai_move, winner, black_win_rate = None, None, 50.0
 
     try:
         data = request.json
-        
-        # 从请求中初始化棋局状态
         game = GomokuGame(config.BOARD_SIZE, config.N_IN_ROW)
         game.board = np.array(data['board'])
         game.move_count = np.sum(game.board != 0)
         game.current_player = data['current_player']
-        # 注意: 为了简化，这里没有设置game.last_move, 对估值函数影响不大
 
-        # --- 第1步: 决定走子 ---
-        move_model_relative_path = data['black_model_path'] if game.current_player == 1 else data['white_model_path']
-        move_model_full_path = os.path.join(config.CHECKPOINT_DIR, move_model_relative_path)
+        move_model_path = data['black_model_path'] if game.current_player == 1 else data['white_model_path']
+        model_for_move = get_cached_model(move_model_path)
         
-        model_for_move = GomokuNet(board_size=config.BOARD_SIZE, num_res_blocks=config.NUM_RES_BLOCKS, num_filters=config.NUM_FILTERS, dropout_p=config.DROPOUT_P)
-        state_dict = torch.load(move_model_full_path, map_location='cpu')
-        model_for_move.load_state_dict(state_dict.get('state_dict', state_dict.get('best_model_state_dict')))
-        model_for_move.to(config.DEVICE).eval()
-
         mcts_for_move = MCTS(model_for_move, config.MCTS_C_PUCT)
         move_idx, _ = mcts_for_move.get_move_and_value(game)
         
-        model_for_move.cpu() # 释放GPU显存
-
-        if move_idx == -1: # 没有有效移动
-            winner = 0 # 和棋
+        if move_idx == -1:
+            winner = 0
         else:
             ai_move = (move_idx // config.BOARD_SIZE, move_idx % config.BOARD_SIZE)
             game.do_move(ai_move)
             winner = game.get_game_ended()
 
-        # --- 第2步: 评估新局面 ---
         if winner is not None:
             if winner == 1: black_win_rate = 100.0
             elif winner == -1: black_win_rate = 0.0
             else: black_win_rate = 50.0
         else:
-            # 根据请求，确定哪个模型是更新的，用于生成胜率
             black_model_full_path = os.path.join(config.CHECKPOINT_DIR, data['black_model_path'])
             white_model_full_path = os.path.join(config.CHECKPOINT_DIR, data['white_model_path'])
-            
             is_black_newer = os.path.getmtime(black_model_full_path) > os.path.getmtime(white_model_full_path)
-            eval_model_full_path = black_model_full_path if is_black_newer else white_model_full_path
-
-            model_for_eval = GomokuNet(board_size=config.BOARD_SIZE, num_res_blocks=config.NUM_RES_BLOCKS, num_filters=config.NUM_FILTERS, dropout_p=config.DROPOUT_P)
-            state_dict = torch.load(eval_model_full_path, map_location='cpu')
-            model_for_eval.load_state_dict(state_dict.get('state_dict', state_dict.get('best_model_state_dict')))
-            model_for_eval.to(config.DEVICE).eval()
-
+            eval_model_path = data['black_model_path'] if is_black_newer else data['white_model_path']
+            
+            model_for_eval = get_cached_model(eval_model_path)
+            
             mcts_for_eval = MCTS(model_for_eval, config.MCTS_C_PUCT)
-            # 棋局对象已更新，current_player已翻转。我们为即将走子的一方获取估值。
             _, value_for_eval = mcts_for_eval.get_move_and_value(game)
             
-            model_for_eval.cpu() # 释放GPU显存
-            
             value_for_eval = float(value_for_eval)
-            # 如果当前轮到黑方(1), 价值就是黑方的视角
             if game.current_player == 1:
                 black_win_rate = (value_for_eval + 1) / 2 * 100
-            # 如果当前轮到白方(-1), 价值是白方的视角, 我们需要转换为黑方胜率
-            else: # game.current_player == -1
+            else:
                 black_win_rate = (-value_for_eval + 1) / 2 * 100
             
     except Exception as e:
@@ -857,8 +831,6 @@ def handle_live_move():
 
 def run_self_play_phase(effective_iteration, args):
     print(f"\n{Fore.BLUE}[>] Phase 1/2: SELF-PLAY for Iteration {effective_iteration + 1}{Style.RESET_ALL}")
-    
-    c_puct_for_sp = config.MCTS_C_PUCT
     
     collected_data_cache = load_selfplay_progress(effective_iteration)
     games_already_done = len(collected_data_cache)
@@ -927,9 +899,6 @@ def run_self_play_phase(effective_iteration, args):
     for p in all_processes:
         p.start()
         
-    # --- [FINAL BUGFIX] ---
-    # Wrap the data collection loop in a try...finally block to ensure progress is ALWAYS saved,
-    # even if the user interrupts with Ctrl+C.
     try:
         pbar_format = "  {l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"
         with tqdm(total=total_target_games, initial=games_already_done, desc=f"--> Self-Play", leave=True, ncols=100, bar_format=pbar_format, ascii=True) as pbar:
@@ -968,13 +937,9 @@ def run_self_play_phase(effective_iteration, args):
                     print(f"\n{Fore.RED}FATAL: Data queue timed out!{Style.RESET_ALL}")
                     break
     finally:
-        # This block will execute whether the loop finishes normally or is interrupted.
-        # 只报告本阶段完成的工作：保存收集到的游戏数据。
-        # 移除 print 语句开头的 `\n` 来删除多余的空行。
         print(f"  {Style.DIM}--> Finalizing self-play phase: saving {len(collected_data_cache)} collected games...{Style.RESET_ALL}")
         save_selfplay_progress(effective_iteration, collected_data_cache)
         
-        # Ensure all child processes are terminated
         for p in all_processes:
             if p.is_alive():
                 p.join(timeout=10)
@@ -983,18 +948,12 @@ def run_self_play_phase(effective_iteration, args):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-
-
 def add_completed_selfplay_to_buffer(iteration_to_add):
-    """
-    加载已完成的自对弈数据，将其合并到主训练缓冲区，并立即将更新后的缓冲区保存到磁盘。
-    这是一个原子操作，确保数据安全。
-    """
     global train_data, train_priorities, train_order, next_data_id
     
     progress_file = os.path.join(config.CHECKPOINT_DIR, f"selfplay_progress_iter_{iteration_to_add}.pkl")
     if not os.path.exists(progress_file):
-        return # 如果文件不存在，则不执行任何操作
+        return
 
     print(f"  {Style.DIM}--> Merging self-play data from Iteration {iteration_to_add + 1} into buffer...{Style.RESET_ALL}")
     
@@ -1028,13 +987,9 @@ def add_completed_selfplay_to_buffer(iteration_to_add):
 
     print(f"  {Style.DIM}- Merged {games_added} games ({steps_added} steps). New Buffer Size: {len(train_data)} / {config.TRAIN_BUFFER_SIZE}{Style.RESET_ALL}")
 
-    # --- [关键修改] ---
-    # 在数据合并到内存后，立刻将更新后的缓冲区保存到磁盘。
     print(f"  {Style.DIM}- Saving updated buffer to disk...{Style.RESET_ALL}")
     save_buffer() 
-    # --------------------
-
-    # 确认合并和保存都成功后，才删除临时的进度文件。
+    
     try:
         os.remove(progress_file)
         print(f"  {Style.DIM}- Cleaned up temporary file: {os.path.basename(progress_file)}{Style.RESET_ALL}")
@@ -1085,7 +1040,6 @@ def run_training_attempt(effective_iteration, writer, hyperparams, attempt_name=
                 loss_stats = perform_train_step(current_model, local_optimizer, scaler, batch_data, writer, global_tensorboard_step)
                 losses.append(loss_stats)
                 
-                # --- [UI REFINEMENT] ---
                 postfix_dict = {
                     "Loss": f"{np.mean([l[0] for l in losses]):.4f}" if losses else "N/A"
                 }
@@ -1095,12 +1049,11 @@ def run_training_attempt(effective_iteration, writer, hyperparams, attempt_name=
                     if (step + 1) % config.TRAIN_SAVE_INTERVAL == 0 and step < steps - 1:
                         save_checkpoint(is_best=False, step_override=step + 1)
                         last_saved_step = step + 1
-                        saved_str = f"{last_saved_step}" # No more checkmark for simplicity
+                        saved_str = f"{last_saved_step}"
                     postfix_dict["Saved"] = saved_str
                 
                 postfix_str = ", ".join([f"{k}: {v}" for k, v in postfix_dict.items()])
                 pbar.set_postfix_str(postfix_str, refresh=True)
-                # --- [END UI REFINEMENT] ---
 
                 pbar.update(1)
 
@@ -1118,8 +1071,6 @@ def run_training_attempt(effective_iteration, writer, hyperparams, attempt_name=
     torch.save({'state_dict': current_model.state_dict()}, challenger_path)
     torch.save({'state_dict': best_model.state_dict()}, defender_path)
     
-    # --- [UI REFINEMENT] ---
-    # Pass a clean, context-free description to the evaluation function.
     eval_desc = "Eval"
     eval_results = run_evaluation_duel(challenger_path, defender_path, desc=eval_desc)
     os.remove(challenger_path); os.remove(defender_path)
@@ -1137,9 +1088,6 @@ def run_hyperparameter_search(effective_iteration, writer, initial_params, initi
     if len(study.trials) == 0 and initial_results:
         initial_score = (initial_results['win_rate'] * 1000) + (initial_results['avg_game_length'] * 0.1)
         
-        # --- BEGIN BUGFIX ---
-        # When manually adding a trial, we must also provide the distributions from which
-        # the parameters could have been sampled. This matches what study.ask() expects.
         param_distributions = {
             'lr': optuna.distributions.FloatDistribution(1e-5, 5e-3, log=True),
             'weight_decay': optuna.distributions.FloatDistribution(1e-6, 1e-3, log=True),
@@ -1150,11 +1098,10 @@ def run_hyperparameter_search(effective_iteration, writer, initial_params, initi
         study.add_trial(
             optuna.trial.create_trial(
                 params=initial_params, 
-                distributions=param_distributions, # This line was missing
+                distributions=param_distributions,
                 value=initial_score
             )
         )
-        # --- END BUGFIX ---
         
         print(f"    {Style.DIM}- Optuna seeded with default trial results (Score: {initial_score:.2f}).{Style.RESET_ALL}")
 
@@ -1169,7 +1116,6 @@ def run_hyperparameter_search(effective_iteration, writer, initial_params, initi
     print(f"    {Style.DIM}- Resuming search, {n_trials_to_run}/{config.OPTUNA_N_TRIALS} trials remaining...{Style.RESET_ALL}")
     
     for i in range(n_trials_to_run):
-        # We define the distributions here directly in study.ask(), which is the standard way.
         trial = study.ask({
             'lr': optuna.distributions.FloatDistribution(1e-5, 5e-3, log=True),
             'weight_decay': optuna.distributions.FloatDistribution(1e-6, 1e-3, log=True),
@@ -1287,11 +1233,8 @@ def main():
 
     if args.clean and os.path.exists(config.CHECKPOINT_DIR): shutil.rmtree(config.CHECKPOINT_DIR)
     
-    # 只加载检查点，暂时不加载缓冲区
     load_checkpoint(resume=not args.clean)
     
-    # 移除这里的 load_buffer() 调用
-
     print(f"\n{Style.BRIGHT}Gomoku AI - AlphaZero V55.9 - PID: {os.getpid()}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}[✅] System Initialized.{Style.RESET_ALL}")
     print(f"  {Style.DIM}- Device        : {str(config.DEVICE).upper()} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
@@ -1305,13 +1248,9 @@ def main():
         hof_model_count = len(glob.glob(os.path.join(hof_dir, "*.pth.tar")))
     print(f"  {Style.DIM}- Hall of Fame  : {hof_model_count} models")
 
-    # --- [关键修改] ---
-    # 将 load_buffer() 的调用移动到这里
     if not args.clean:
-        load_buffer() # 这会打印出 "Loading...", "Sanitizing..." 等信息
-    # --------------------
+        load_buffer()
 
-    # 打印缓冲区大小，此时数据已经加载完毕
     print(f"  {Style.DIM}- Buffer Size   : {len(train_data)} / {config.TRAIN_BUFFER_SIZE}")
 
     if not args.no_gui:
@@ -1334,7 +1273,6 @@ def main():
                 print(f"\n{Style.BRIGHT}================= AUTO-START: SELF-PLAY (Iter {iter_to_process+1}) ================{Style.RESET_ALL}")
                 run_self_play_phase(iter_to_process, args)
 
-                # [关键步骤] 在这里调用数据合并函数
                 add_completed_selfplay_to_buffer(iter_to_process)
                 
                 action_to_run = {'action': 'train', 'iter': iter_to_process}
