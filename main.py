@@ -34,7 +34,7 @@ import webbrowser
 import json
 import glob
 import matplotlib
-matplotlib.use('Agg') 
+matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
@@ -61,12 +61,12 @@ class QuickTestConfig:
     NUM_FILTERS = 256
     DROPOUT_P = 0.3
     
-    # MCTS_SIMULATIONS太小了不行，局面杂乱无章会难以学习
-    MCTS_SIMULATIONS = 1200
+    # MCTS_SIMULATIONS太小了不行，局面杂乱无章会难以学习，如果没办法实现自举可以设置成1200
+    MCTS_SIMULATIONS = 800
     MCTS_NOISE_ALPHA = 0.3
     MCTS_NOISE_FRAC = 0.25
     MCTS_C_PUCT = 3.0    
-    SELF_PLAY_GAMES_PER_ITER = 200
+    SELF_PLAY_GAMES_PER_ITER = 280
     SELF_PLAY_SAVE_INTERVAL = 25
 
     # 4090单卡推荐配置，根据需求自己调
@@ -83,7 +83,7 @@ class QuickTestConfig:
     TRAIN_BUFFER_SIZE = 1000000
     PER_ALPHA = 0.6
     
-    EVAL_GAMES = 20
+    EVAL_GAMES = 10
     EVAL_WIN_RATE = 0.55
     
     NEWEST_MODEL_SELF_PLAY_RATIO = 0.9
@@ -278,7 +278,7 @@ def game_worker(process_id, games_per_worker, data_queue, mode, gpu_sem, model_p
                 if mode == 'self_play':
                     play_data = []
                     while True:
-                        temp = 1.0 if len(play_data) < 30 else 0.1
+                        temp = 1.0 if len(play_data) < 60 else 0.1
                         action_probs = mcts_a.get_action_probs(game, temp=temp, add_exploration_noise=True)
                         if np.sum(action_probs) == 0: winner = 0; break
                         action_idx = np.random.choice(len(action_probs), p=action_probs)
@@ -489,13 +489,87 @@ def save_buffer(filepath=None):
     except Exception as e: print(f"{Fore.RED}❌ Error saving replay buffer: {e}{Style.RESET_ALL}")
 
 def load_buffer(filepath=None):
+    """
+    加载回放缓冲区文件，并包含强大的数据恢复与重建索引功能。
+    
+    [终极修复] 此版本可以处理因旧代码逻辑导致的历史遗留问题，
+    即缓冲区中存在无法转换为整数的复杂字符串键（如 'pid-timestamp-...'）。
+    
+    当检测到这种不兼容的键时，函数会自动触发“重建索引”模式：
+    1. 放弃所有旧的、混乱的键。
+    2. 提取出所有的训练数据（值）。
+    3. 从0开始，为每一条数据分配一个全新的、纯净的整数ID。
+    4. 在内存中重建一个干净、一致的缓冲区。
+    """
     global train_data, train_priorities, train_order, next_data_id
-    if filepath is None: filepath = os.path.join(config.CHECKPOINT_DIR, "buffer.pkl")
+    
+    if filepath is None:
+        filepath = os.path.join(config.CHECKPOINT_DIR, "buffer.pkl")
+        
     if os.path.exists(filepath):
         try:
-            with open(filepath, 'rb') as f: buffer_state = pickle.load(f)
-            train_data, train_priorities, train_order, next_data_id = buffer_state['train_data'], buffer_state['train_priorities'], buffer_state['train_order'], buffer_state['next_data_id']
-        except Exception as e: print(f"{Fore.RED}❌ Error loading replay buffer: {e}{Style.RESET_ALL}")
+            print(f"  {Style.DIM}- Loading replay buffer from: {os.path.basename(filepath)}{Style.RESET_ALL}")
+            with open(filepath, 'rb') as f: 
+                buffer_state = pickle.load(f)
+
+            # --- [ULTIMATE RECOVERY FIX] ---
+            # 检查第一个键是否可以被转换为整数，以此来判断是否需要重建索引
+            first_key = next(iter(buffer_state.get('train_data', {'0':None})), '0')
+            needs_reindexing = not str(first_key).isdigit()
+
+            if needs_reindexing:
+                print(f"  {Fore.YELLOW}Warning: Incompatible key format ('{first_key}') detected in buffer.{Style.RESET_ALL}")
+                print(f"  {Fore.CYAN}Action: Starting a one-time re-indexing process to recover data...{Style.RESET_ALL}")
+
+                # 提取所有的值（即 [state, pi, value] 列表）
+                loaded_train_data_values = buffer_state.get('train_data', {}).values()
+                
+                # 彻底清空全局变量，准备重建
+                train_data.clear()
+                train_priorities.clear()
+                train_order.clear()
+                
+                new_id = 0
+                
+                print(f"  {Style.DIM}- Re-indexing {len(loaded_train_data_values)} data points...{Style.RESET_ALL}")
+                
+                # 遍历所有数据，并分配新的整数键
+                # 为了防止缓冲区超过最大值，我们从后往前取最新的数据
+                latest_data = list(loaded_train_data_values)[-config.TRAIN_BUFFER_SIZE:]
+
+                for step_data in latest_data:
+                    train_data[new_id] = step_data
+                    train_priorities[new_id] = 1.0  # 为所有恢复的数据重置优先级
+                    train_order.append(new_id)
+                    new_id += 1
+                
+                next_data_id = new_id # 将下一个ID设置为重建后的总数
+                
+                print(f"  {Fore.GREEN}[✅] Buffer successfully re-indexed. {len(train_data)} items recovered.{Style.RESET_ALL}")
+                print(f"  {Fore.CYAN}Action: Saving the newly indexed buffer to prevent future recovery...{Style.RESET_ALL}")
+                save_buffer() # 立即保存，一劳永逸
+
+            else:
+                # 如果键是正常的，则执行之前的清理逻辑
+                print(f"  {Style.DIM}- Buffer format looks OK. Sanitizing data types...{Style.RESET_ALL}")
+                train_data = {int(k): v for k, v in buffer_state.get('train_data', {}).items()}
+                train_priorities = {int(k): v for k, v in buffer_state.get('train_priorities', {}).items()}
+                
+                sanitized_order = deque(maxlen=config.TRAIN_BUFFER_SIZE)
+                for item in buffer_state.get('train_order', []):
+                    sanitized_order.append(int(item))
+                train_order = sanitized_order
+                
+                next_data_id = buffer_state.get('next_data_id', 0)
+                print(f"  {Style.DIM}- Buffer sanitized successfully.{Style.RESET_ALL}")
+
+        except Exception as e: 
+            print(f"{Fore.RED}❌ FATAL Error during buffer recovery: {e}{Style.RESET_ALL}")
+            import traceback
+            traceback.print_exc()
+            # 如果恢复失败，则从空缓冲区开始，防止程序陷入崩溃循环
+            print(f"{Fore.YELLOW}Warning: Starting with a fresh, empty buffer due to unrecoverable error.{Style.RESET_ALL}")
+            train_data, train_priorities, train_order, next_data_id = {}, {}, deque(maxlen=config.TRAIN_BUFFER_SIZE), 0
 
 def save_checkpoint(is_best=False, step_override=None):
     resumable_state = {
@@ -771,7 +845,9 @@ def run_self_play_phase(effective_iteration, args):
                     break
     finally:
         # This block will execute whether the loop finishes normally or is interrupted.
-        print(f"\n  {Style.DIM}--> Finalizing self-play phase: saving {len(collected_data_cache)} collected games...{Style.RESET_ALL}")
+        # 只报告本阶段完成的工作：保存收集到的游戏数据。
+        # 移除 print 语句开头的 `\n` 来删除多余的空行。
+        print(f"  {Style.DIM}--> Finalizing self-play phase: saving {len(collected_data_cache)} collected games...{Style.RESET_ALL}")
         save_selfplay_progress(effective_iteration, collected_data_cache)
         
         # Ensure all child processes are terminated
@@ -782,7 +858,64 @@ def run_self_play_phase(effective_iteration, args):
         
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-    # --- [END FINAL BUGFIX] ---
+
+
+
+def add_completed_selfplay_to_buffer(iteration_to_add):
+    """
+    加载已完成的自对弈数据，将其合并到主训练缓冲区，并立即将更新后的缓冲区保存到磁盘。
+    这是一个原子操作，确保数据安全。
+    """
+    global train_data, train_priorities, train_order, next_data_id
+    
+    progress_file = os.path.join(config.CHECKPOINT_DIR, f"selfplay_progress_iter_{iteration_to_add}.pkl")
+    if not os.path.exists(progress_file):
+        return # 如果文件不存在，则不执行任何操作
+
+    print(f"  {Style.DIM}--> Merging self-play data from Iteration {iteration_to_add + 1} into buffer...{Style.RESET_ALL}")
+    
+    try:
+        with open(progress_file, 'rb') as f:
+            completed_games_cache = pickle.load(f)
+    except Exception as e:
+        print(f"{Fore.RED}❌ Error loading self-play progress file: {e}{Style.RESET_ALL}")
+        return
+
+    games_added = 0
+    steps_added = 0
+    for game_data in completed_games_cache:
+        _, play_data, _ = game_data
+        if not play_data:
+            continue
+        
+        games_added += 1
+        for step_data in play_data:
+            if len(train_order) == config.TRAIN_BUFFER_SIZE:
+                oldest_id = train_order.popleft()
+                if oldest_id in train_data: del train_data[oldest_id]
+                if oldest_id in train_priorities: del train_priorities[oldest_id]
+
+            new_id = next_data_id
+            train_data[new_id] = step_data
+            train_priorities[new_id] = 1.0
+            train_order.append(new_id)
+            next_data_id += 1
+            steps_added += 1
+
+    print(f"  {Style.DIM}- Merged {games_added} games ({steps_added} steps). New Buffer Size: {len(train_data)} / {config.TRAIN_BUFFER_SIZE}{Style.RESET_ALL}")
+
+    # --- [关键修改] ---
+    # 在数据合并到内存后，立刻将更新后的缓冲区保存到磁盘。
+    print(f"  {Style.DIM}- Saving updated buffer to disk...{Style.RESET_ALL}")
+    save_buffer() 
+    # --------------------
+
+    # 确认合并和保存都成功后，才删除临时的进度文件。
+    try:
+        os.remove(progress_file)
+        print(f"  {Style.DIM}- Cleaned up temporary file: {os.path.basename(progress_file)}{Style.RESET_ALL}")
+    except OSError as e:
+        print(f"{Fore.YELLOW}Warning: Could not remove processed self-play file: {e}{Style.RESET_ALL}")
 
 def run_training_attempt(effective_iteration, writer, hyperparams, attempt_name="Training", is_verification=False):
     global current_train_step
@@ -1060,11 +1193,18 @@ def main():
         while True:
             if PAUSE_TRAINING_EVENT.is_set(): time.sleep(1); continue
 
+
             if action_to_run['action'] == 'self_play':
-                print(f"\n{Style.BRIGHT}================= AUTO-START: SELF-PLAY (Iter {action_to_run['iter']+1}) ================{Style.RESET_ALL}")
-                run_self_play_phase(action_to_run['iter'], args)
-                action_to_run = {'action': 'train', 'iter': action_to_run['iter']}
+                iter_to_process = action_to_run['iter']
+                print(f"\n{Style.BRIGHT}================= AUTO-START: SELF-PLAY (Iter {iter_to_process+1}) ================{Style.RESET_ALL}")
+                run_self_play_phase(iter_to_process, args)
+
+                # [关键步骤] 在这里调用数据合并函数
+                add_completed_selfplay_to_buffer(iter_to_process)
+                
+                action_to_run = {'action': 'train', 'iter': iter_to_process}
                 continue
+
 
             elif action_to_run['action'] in ['train', 'redo_train']:
                 is_redo = action_to_run['action'] == 'redo_train'
