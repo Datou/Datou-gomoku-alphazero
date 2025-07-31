@@ -727,6 +727,130 @@ def load_replay(filename):
         except Exception as e: return jsonify({"error": f"Failed to load replay: {e}"}), 500
     return jsonify({"error": "Replay not found"}), 404
 
+@app.route('/get_hof_list')
+def get_hof_list():
+    """获取名人堂模型列表，用于前端下拉菜单"""
+    models_info = []
+    # 首先添加当前最优模型
+    best_model_path = "best.pth.tar"
+    if os.path.exists(os.path.join(config.CHECKPOINT_DIR, best_model_path)):
+        models_info.append({
+            "name": "Current Best Model",
+            "path": best_model_path
+        })
+
+    # 然后添加名人堂中的所有模型
+    hof_dir = os.path.join(config.CHECKPOINT_DIR, "hall_of_fame")
+    if os.path.exists(hof_dir):
+        hof_files = sorted(
+            glob.glob(os.path.join(hof_dir, "*.pth.tar")),
+            key=os.path.getmtime,
+            reverse=True
+        )
+        for f_path in hof_files:
+            basename = os.path.basename(f_path)
+            parts = basename.replace('.pth.tar', '').split('_')
+            # 预期的格式: hof_model_iter_XX_name.pth.tar
+            if len(parts) >= 4:
+                try:
+                    iter_num = int(parts[3])
+                    attempt_name = ' '.join(parts[4:]).title()
+                    display_name = f"Iter {iter_num} - {attempt_name}"
+                    models_info.append({
+                        "name": display_name,
+                        "path": os.path.join("hall_of_fame", basename)
+                    })
+                except (ValueError, IndexError):
+                    continue
+    return jsonify(models_info)
+
+
+@app.route('/live_move', methods=['POST'])
+def handle_live_move():
+    """处理Live模式下的模型对战走子请求"""
+    PAUSE_TRAINING_EVENT.set()
+    time.sleep(0.1)
+    
+    ai_move, winner, black_win_rate = None, None, 50.0
+
+    try:
+        data = request.json
+        
+        # 从请求中初始化棋局状态
+        game = GomokuGame(config.BOARD_SIZE, config.N_IN_ROW)
+        game.board = np.array(data['board'])
+        game.move_count = np.sum(game.board != 0)
+        game.current_player = data['current_player']
+        # 注意: 为了简化，这里没有设置game.last_move, 对估值函数影响不大
+
+        # --- 第1步: 决定走子 ---
+        move_model_relative_path = data['black_model_path'] if game.current_player == 1 else data['white_model_path']
+        move_model_full_path = os.path.join(config.CHECKPOINT_DIR, move_model_relative_path)
+        
+        model_for_move = GomokuNet(board_size=config.BOARD_SIZE, num_res_blocks=config.NUM_RES_BLOCKS, num_filters=config.NUM_FILTERS, dropout_p=config.DROPOUT_P)
+        state_dict = torch.load(move_model_full_path, map_location='cpu')
+        model_for_move.load_state_dict(state_dict.get('state_dict', state_dict.get('best_model_state_dict')))
+        model_for_move.to(config.DEVICE).eval()
+
+        mcts_for_move = MCTS(model_for_move, config.MCTS_C_PUCT)
+        move_idx, _ = mcts_for_move.get_move_and_value(game)
+        
+        model_for_move.cpu() # 释放GPU显存
+
+        if move_idx == -1: # 没有有效移动
+            winner = 0 # 和棋
+        else:
+            ai_move = (move_idx // config.BOARD_SIZE, move_idx % config.BOARD_SIZE)
+            game.do_move(ai_move)
+            winner = game.get_game_ended()
+
+        # --- 第2步: 评估新局面 ---
+        if winner is not None:
+            if winner == 1: black_win_rate = 100.0
+            elif winner == -1: black_win_rate = 0.0
+            else: black_win_rate = 50.0
+        else:
+            # 根据请求，确定哪个模型是更新的，用于生成胜率
+            black_model_full_path = os.path.join(config.CHECKPOINT_DIR, data['black_model_path'])
+            white_model_full_path = os.path.join(config.CHECKPOINT_DIR, data['white_model_path'])
+            
+            is_black_newer = os.path.getmtime(black_model_full_path) > os.path.getmtime(white_model_full_path)
+            eval_model_full_path = black_model_full_path if is_black_newer else white_model_full_path
+
+            model_for_eval = GomokuNet(board_size=config.BOARD_SIZE, num_res_blocks=config.NUM_RES_BLOCKS, num_filters=config.NUM_FILTERS, dropout_p=config.DROPOUT_P)
+            state_dict = torch.load(eval_model_full_path, map_location='cpu')
+            model_for_eval.load_state_dict(state_dict.get('state_dict', state_dict.get('best_model_state_dict')))
+            model_for_eval.to(config.DEVICE).eval()
+
+            mcts_for_eval = MCTS(model_for_eval, config.MCTS_C_PUCT)
+            # 棋局对象已更新，current_player已翻转。我们为即将走子的一方获取估值。
+            _, value_for_eval = mcts_for_eval.get_move_and_value(game)
+            
+            model_for_eval.cpu() # 释放GPU显存
+            
+            value_for_eval = float(value_for_eval)
+            # 如果当前轮到黑方(1), 价值就是黑方的视角
+            if game.current_player == 1:
+                black_win_rate = (value_for_eval + 1) / 2 * 100
+            # 如果当前轮到白方(-1), 价值是白方的视角, 我们需要转换为黑方胜率
+            else: # game.current_player == -1
+                black_win_rate = (-value_for_eval + 1) / 2 * 100
+            
+    except Exception as e:
+        print(f"Error in /live_move: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        PAUSE_TRAINING_EVENT.clear()
+        
+    return jsonify({
+        'ai_move': [int(ai_move[0]), int(ai_move[1])] if ai_move else None,
+        'game_over': winner is not None,
+        'winner': int(winner) if winner is not None else None,
+        'black_win_rate': black_win_rate
+    })
+
 # =====================================================================
 #                      核心执行流程
 # =====================================================================
