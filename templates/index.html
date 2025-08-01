@@ -44,7 +44,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            width: 300px; 
+            width: 300px;
         }
         .control-group {
             border: 1px solid var(--border-color);
@@ -97,14 +97,15 @@
             padding: 12px;
             background-color: var(--light-gray);
             border: 1px solid var(--border-color);
-            border-radius: 8px; 
-            text-align: center;
+            border-radius: 8px;
+            text-align: left;
             font-weight: 500;
             min-height: 44px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
-            align-items: center;
-            line-height: 1.4;
+            align-items: flex-start;
+            line-height: 1.5;
         }
         .replay-controls-wrapper {
             display: flex;
@@ -122,6 +123,11 @@
             flex-direction: column;
             gap: 10px;
         }
+        .stat-line {
+            padding-left: 15px;
+            font-size: 14px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -132,7 +138,7 @@
             <canvas id="gomoku-board"></canvas>
         </div>
     </div>
-    
+
     <div class="panel controls-panel">
         <div class="control-group mode-selector">
             <h3>Mode</h3>
@@ -159,12 +165,12 @@
                 </div>
             </div>
         </div>
-        
+
         <div id="info-panel">Loading replay info...</div>
-        
+
         <div id="main-controls" class="control-group" style="display: none;">
             <h3 id="main-controls-title"></h3>
-            
+
             <div id="live-setup-controls" class="setup-controls">
                 <div>
                     <label for="live-black-model-selector" style="display: block; margin-bottom: 5px;">⚫ Model:</label>
@@ -182,12 +188,12 @@
                 <button id="btn-play-white">Play as ⚪</button>
             </div>
             <button id="btn-reset" style="margin-top: 10px; width: 100%; display: none;">Reset Game</button>
-            
+
             <div id="win-rate-chart-container">
                 <canvas id="win-rate-chart"></canvas>
             </div>
         </div>
-        
+
         <div id="status-panel" style="display: none;"></div>
     </div>
 </div>
@@ -198,7 +204,7 @@
  ******************************************************************************************/
 const BOARD_SIZE   = 15;
 const CELL_SIZE    = 40;
-const MARGIN       = 40; 
+const MARGIN       = 40;
 const CANVAS_DIMENSION = CELL_SIZE * (BOARD_SIZE - 1) + MARGIN * 2;
 
 const canvas     = document.getElementById('gomoku-board');
@@ -213,6 +219,8 @@ let currentMode = 'replay', replayData = null, currentReplayStep = 0;
 let isAutoPlaying = false, autoPlayInterval = null, autoPlaySpeed = 1000;
 let board = [], moveHistory = [], playerColor = null, isPlayerTurn = false, isGameOver = false;
 let isLiveGameRunning = false;
+let missedWinAnalysis = null;
+
 
 const infoPanel = document.getElementById('info-panel');
 const statusPanel = document.getElementById('status-panel');
@@ -223,7 +231,7 @@ const btnReset = document.getElementById('btn-reset');
 let winRateChart = null, blackWinRateHistory = [];
 
 /******************************************************************************************
- * Part 2: Drawing Functions (FIXED)
+ * Part 2: Drawing Functions (No Changes)
  ******************************************************************************************/
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -308,7 +316,7 @@ function drawHoverStone(row, col, color) {
 
 
 /******************************************************************************************
- * Part 3: Win Rate Chart Functions
+ * Part 3: Win Rate Chart Functions (No Changes)
  ******************************************************************************************/
 function initWinRateChart() {
     const chartCanvas = document.getElementById('win-rate-chart');
@@ -454,40 +462,93 @@ async function loadReplay(filename) {
         const res = await fetch(`/load_replay/${filename}`);
         replayData = await res.json();
         currentReplayStep = 0;
+        missedWinAnalysis = analyzeMissedWins(replayData);
         updateReplayView();
         startAutoPlay()
     } catch (e) {
         console.error(`Failed to load replay file ${filename}:`, e)
     }
 }
+// [重构] UI更新函数，实现最终排版
 function updateReplayView() {
     if (!replayData) return;
     drawReplayBoard();
+    
+    // Control button status
     document.getElementById('btn-first').disabled = currentReplayStep === 0;
     document.getElementById('btn-prev').disabled = currentReplayStep === 0;
     document.getElementById('btn-next').disabled = currentReplayStep >= replayData.moves.length;
     document.getElementById('btn-last').disabled = currentReplayStep >= replayData.moves.length;
+
     const selectedOptionText = replaySelector.options[replaySelector.selectedIndex].text;
-    let info = `<b>${selectedOptionText}</b><br>`;
-    let challengerCrown = '',
-        defenderCrown = '';
-    const isGameFinished = currentReplayStep === replayData.moves.length;
-    if (isGameFinished && replayData.winner !== "Draw") {
-        if (replayData.challenger_color === replayData.winner) challengerCrown = '👑';
-        if (replayData.defender_color === replayData.winner) defenderCrown = '👑'
-    }
     const challengerEmoji = replayData.challenger_color === 'Black' ? '⚫' : '⚪';
     const defenderEmoji = replayData.defender_color === 'Black' ? '⚫' : '⚪';
-    info += `Challenger: ${challengerEmoji}${challengerCrown}<br>Defender: ${defenderEmoji}${defenderCrown}<br>`;
+    const isGameFinished = currentReplayStep === replayData.moves.length;
+
+    // 1. Determine winner crown
+    let challengerCrown = '';
+    let defenderCrown = '';
+    if (isGameFinished && replayData.winner && replayData.winner !== "Draw") {
+        if (replayData.winner === 'Challenger') {
+            challengerCrown = '👑';
+        } else if (replayData.winner === 'Defender') {
+            defenderCrown = '👑';
+        }
+    }
+
+    // 2. Start building HTML
+    let html = `<b>${selectedOptionText}</b><br>`;
+
+    // 3. Dynamic stats calculation
+    const calculateDynamicStats = (playerAnalysis) => {
+        const dynamicStats = {};
+        for (const type in playerAnalysis) {
+            dynamicStats[type] = playerAnalysis[type].filter(step => step <= currentReplayStep).length;
+        }
+        return dynamicStats;
+    };
+    
+    const formatPlayerStatsHTML = (stats) => {
+        let playerHtml = '';
+        if (stats.five > 0) playerHtml += `<div class="stat-line">Five missed: ${stats.five}</div>`;
+        if (stats.overline > 0) playerHtml += `<div class="stat-line">Overline missed: ${stats.overline}</div>`;
+        if (stats.openFour > 0) playerHtml += `<div class="stat-line">Open Four missed: ${stats.openFour}</div>`;
+        if (stats.doubleThree > 0) playerHtml += `<div class="stat-line">Double Three missed: ${stats.doubleThree}</div>`;
+        return playerHtml;
+    };
+
+    if (missedWinAnalysis) {
+        const dynamicChallengerStats = calculateDynamicStats(missedWinAnalysis.challenger);
+        const dynamicDefenderStats = calculateDynamicStats(missedWinAnalysis.defender);
+
+        html += `<br>Challenger: ${challengerEmoji}${challengerCrown}<br>`;
+        html += formatPlayerStatsHTML(dynamicChallengerStats);
+        
+        html += `<br>Defender: ${defenderEmoji}${defenderCrown}<br>`;
+        html += formatPlayerStatsHTML(dynamicDefenderStats);
+    }
+    
+    html += `<hr style="border: 0; border-top: 1px solid #ddd; margin: 8px 0;">`;
+
+    // 4. Bottom game info line
+    let bottomLine = '';
     if (currentReplayStep > 0 && currentReplayStep <= replayData.moves.length) {
         const [r, c] = replayData.moves[currentReplayStep - 1];
         highlightLastMove(r, c);
-        info += `Move ${currentReplayStep}/${replayData.moves.length}. Turn: ${currentReplayStep%2===0?'⚪':'⚫'}<br>`
+        bottomLine = `Move ${currentReplayStep}/${replayData.moves.length}. Turn: ${currentReplayStep % 2 === 0 ? '⚫' : '⚪'}`;
+    } else {
+         bottomLine = `Move 0/${replayData.moves.length}. Turn: ⚫`;
     }
-    if (isGameFinished && replayData.winner === "Draw") {
-        info += `Game Over. Draw`
+
+    if (isGameFinished) {
+        bottomLine = bottomLine.replace(/Turn:.*$/, `Game Over.`);
+        if (replayData.winner === 'Draw') {
+            bottomLine += ' Draw';
+        }
     }
-    infoPanel.innerHTML = info
+    
+    html += bottomLine;
+    infoPanel.innerHTML = html;
 }
 function setReplayStep(step) {
     if (!replayData) return;
@@ -508,8 +569,102 @@ function stopAutoPlay() {
     clearInterval(autoPlayInterval)
 }
 
+// Part 4.5: Analysis Logic (No Changes)
+function analyzeMissedWins(replayData) {
+    const analysis = {
+        challenger: { five: [], openFour: [], doubleThree: [], overline: [] },
+        defender: { five: [], openFour: [], doubleThree: [], overline: [] }
+    };
+
+    let board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0));
+    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
+    function checkLine(r, c, player, dr, dc, tempBoard) {
+        let count = 1;
+        let openEnds = 0;
+        // Forward
+        for (let i = 1; i < 6; i++) {
+            const nr = r + i * dr; const nc = c + i * dc;
+            if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || tempBoard[nr][nc] !== player) {
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && tempBoard[nr][nc] === 0) openEnds++;
+                break;
+            }
+            count++;
+        }
+        // Backward
+        for (let i = 1; i < 6; i++) {
+            const nr = r - i * dr; const nc = c - i * dc;
+            if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || tempBoard[nr][nc] !== player) {
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && tempBoard[nr][nc] === 0) openEnds++;
+                break;
+            }
+            count++;
+        }
+        return { count, openEnds };
+    }
+
+    function findPotentialWinsForMove(tempBoard, player) {
+        const wins = { five: [], openFour: [], doubleThree: [], overline: [] };
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (tempBoard[r][c] !== 0) continue;
+                
+                tempBoard[r][c] = player; // Virtually place stone
+                
+                let openThreeCount = 0;
+                let hasOpenFour = false;
+                let hasFive = false;
+                let hasOverline = false;
+
+                for (const [dr, dc] of directions) {
+                    const { count, openEnds } = checkLine(r, c, player, dr, dc, tempBoard);
+                    if (count >= 6) hasOverline = true;
+                    else if (count === 5) hasFive = true;
+                    else if (count === 4 && openEnds === 2) hasOpenFour = true;
+                    else if (count === 3 && openEnds === 2) openThreeCount++;
+                }
+
+                if(hasOverline) wins.overline.push([r, c]);
+                if(hasFive) wins.five.push([r, c]);
+                if(hasOpenFour) wins.openFour.push([r, c]);
+                if(openThreeCount >= 2) wins.doubleThree.push([r, c]);
+
+                tempBoard[r][c] = 0; // Backtrack
+            }
+        }
+        return wins;
+    }
+
+    for (let i = 0; i < replayData.moves.length; i++) {
+        const isChallengerTurn = (replayData.challenger_color === 'Black' && i % 2 === 0) || (replayData.challenger_color === 'White' && i % 2 !== 0);
+        const player = i % 2 === 0 ? 1 : -1;
+        const actualMove = replayData.moves[i];
+
+        const potentialWins = findPotentialWinsForMove(board, player);
+        const allWinningMoves = [].concat(potentialWins.five, potentialWins.overline, potentialWins.openFour, potentialWins.doubleThree);
+
+        if (allWinningMoves.length > 0) {
+            const madeWinningMove = allWinningMoves.some(move => move[0] === actualMove[0] && move[1] === actualMove[1]);
+            
+            if (!madeWinningMove) {
+                const playerAnalysis = isChallengerTurn ? analysis.challenger : analysis.defender;
+                const moveNumber = i + 1;
+                if(potentialWins.five.length > 0) playerAnalysis.five.push(moveNumber);
+                else if(potentialWins.overline.length > 0) playerAnalysis.overline.push(moveNumber);
+                else if(potentialWins.openFour.length > 0) playerAnalysis.openFour.push(moveNumber);
+                else if(potentialWins.doubleThree.length > 0) playerAnalysis.doubleThree.push(moveNumber);
+            }
+        }
+        
+        board[actualMove[0]][actualMove[1]] = player;
+    }
+
+    return analysis;
+}
+
+
 /******************************************************************************************
- * Part 5: Play & Live Mode Logic
+ * Part 5: Play & Live Mode Logic (No Changes)
  ******************************************************************************************/
 function _resetBoardAndChart() {
     board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0));
@@ -779,7 +934,7 @@ function switchMode(mode) {
     currentMode = mode;
     stopAutoPlay();
     if (isLiveGameRunning) stopLiveGame();
-    
+
     const replayControls = document.getElementById('replay-controls');
     const mainControls = document.getElementById('main-controls');
     const liveSetup = document.getElementById('live-setup-controls');
@@ -788,14 +943,14 @@ function switchMode(mode) {
     const boardTitle = document.getElementById('board-title');
     const mainControlsTitle = document.getElementById('main-controls-title');
     const allModeButtons = document.querySelectorAll('.mode-selector button');
-    
+
     allModeButtons.forEach(btn => btn.classList.remove('active'));
-    
+
     replayControls.style.display = 'none';
     mainControls.style.display = 'none';
     infoPanel.style.display = 'none';
     statusPanel.style.display = 'none';
-    
+
     if (mode === 'replay') {
         replayControls.style.display = 'block';
         infoPanel.style.display = 'flex';
