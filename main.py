@@ -86,7 +86,8 @@ class QuickTestConfig:
     EVAL_GAMES = 10
     EVAL_WIN_RATE = 0.55
     
-    NEWEST_MODEL_SELF_PLAY_RATIO = 0.9
+    # 自对弈中最新模型的占比
+    NEWEST_MODEL_SELF_PLAY_RATIO = 0.7
     
     HALL_OF_FAME_SIZE = 5
     
@@ -569,14 +570,14 @@ def save_checkpoint(is_best=False, step_override=None):
         torch.save({'state_dict': best_model.state_dict()}, os.path.join(config.CHECKPOINT_DIR, "best.pth.tar"))
 
 def load_checkpoint(resume=False):
-    global iteration, current_train_step, optimizer, scheduler, scaler
+    global iteration, current_train_step, optimizer, scheduler, scaler # Returns True if it's a fresh start
     best_path, resume_path = os.path.join(config.CHECKPOINT_DIR, "best.pth.tar"), os.path.join(config.CHECKPOINT_DIR, "checkpoint.pth.tar")
     load_path = resume_path if resume and os.path.exists(resume_path) else best_path
     if not os.path.exists(load_path):
         optimizer = optim.Adam(current_model.parameters(), lr=config.DEFAULT_LEARNING_RATE, weight_decay=config.DEFAULT_WEIGHT_DECAY)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
         save_checkpoint(is_best=True)
-        return
+        return True # Signal a fresh start
     state = torch.load(load_path, map_location='cpu')
     current_model.load_state_dict(state.get('state_dict', state.get('best_model_state_dict')))
     best_model.load_state_dict(state.get('best_model_state_dict', state.get('state_dict')))
@@ -593,6 +594,7 @@ def load_checkpoint(resume=False):
             if 'scheduler' in state and state['scheduler']: scheduler.load_state_dict(state['scheduler'])
             if 'scaler' in state and state['scaler']: scaler.load_state_dict(state['scaler'])
         except Exception as e: print(f"{Fore.YELLOW}Warning: Could not load optimizer/scheduler state: {e}{Style.RESET_ALL}")
+    return False # Signal a normal load
 
 def update_best_model_and_hof(iter_num, attempt_name):
     """Handles all logic for promoting a winning model with a UNIFIED naming convention."""
@@ -1233,13 +1235,19 @@ def main():
 
     if args.clean and os.path.exists(config.CHECKPOINT_DIR): shutil.rmtree(config.CHECKPOINT_DIR)
     
-    load_checkpoint(resume=not args.clean)
-    
     print(f"\n{Style.BRIGHT}Gomoku AI - AlphaZero V55.9 - PID: {os.getpid()}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}[✅] System Initialized.{Style.RESET_ALL}")
     print(f"  {Style.DIM}- Device        : {str(config.DEVICE).upper()} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
     print(f"  {Style.DIM}- Workers       : {config.NUM_SELF_PLAY_WORKERS} CPU, {config.MAX_GPU_WORKERS_SELF_PLAY} on GPU")
+
+    is_first_run = load_checkpoint(resume=not args.clean)
+
     print(f"{Fore.GREEN}[✅] Checkpoint Loaded.{Style.RESET_ALL}")
+
+    if is_first_run:
+        print(f"  {Fore.CYAN}--> First run detected. Generating initial policy heatmap...{Style.RESET_ALL}")
+        visualize_policy(current_model, 0, "default")
+
     print(f"  {Style.DIM}- Iteration     : {iteration + 1}")
     
     hof_dir = os.path.join(config.CHECKPOINT_DIR, "hall_of_fame")
