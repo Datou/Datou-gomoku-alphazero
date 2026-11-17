@@ -28,6 +28,8 @@
 
 原始路径仍保留在 `run_config.json`、`supervision.jsonl` 和评估 JSON 的 `checkpoint` 字段中，这是刻意保留的可追溯信息；`weights/*.json` 是与权重同名的结构/规则元数据，不包含本机路径。
 
+`alphazero_27702.pt` 是从 `training_state.db` 的 `trainer_state.singleton_state` 反序列化后取出的 `model_state_dict`，对应训练停止时的最终步数 27,702；它不是周期检查点文件，所以仓库里没有同名的原始 `.pt` 路径。
+
 ## 复现说明
 
 - 训练是单机、随机初始化、纯自我对弈；没有人类棋谱或预训练权重。
