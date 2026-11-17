@@ -2,7 +2,7 @@
 
 从零开始、只用自我对弈训练的 15×15 五子棋 AlphaZero。完整实现 RIF 禁手规则（黑棋长连、四四、三三），并使用 26 种 RIF 平衡开局 + 20% 自由开局训练。
 
-本仓库只包含 **AlphaZero** 代码、最终权重、训练过程和结果。MuZero 实验代码、权重和日志不在这里。
+本仓库包含 **五子棋 AlphaZero** 代码、阶段性权重、训练过程和对战页面。
 
 <p align="center">
   <img src="docs/preview.png" alt="浏览器对战页" width="900">
