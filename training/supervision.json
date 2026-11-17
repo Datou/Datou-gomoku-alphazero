@@ -1,0 +1,378 @@
+{
+  "checked_at": 1794859287.2718768,
+  "output_dir": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2",
+  "status": "running",
+  "issues": [],
+  "automation_status": "ACTIVE_DSH_SCHEDULE",
+  "schedule_id": "schedule-92668484-14fc-49aa-84dc-5508cf7f95f2",
+  "supervision_interval_hours": 5,
+  "training_groups": 1,
+  "evaluation_groups": 1,
+  "run_status": {
+    "pid": 10428,
+    "updated_at": 1794859286.971596,
+    "phase": "running",
+    "children": [
+      {
+        "name": "Orchestrator",
+        "pid": 30096,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "InferenceServer",
+        "pid": 48636,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "DataLoader",
+        "pid": 51596,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Visualizer",
+        "pid": 40900,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Trainer",
+        "pid": 3108,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-0",
+        "pid": 50708,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-1",
+        "pid": 42260,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-2",
+        "pid": 5940,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-3",
+        "pid": 46792,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-4",
+        "pid": 50100,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-5",
+        "pid": 48828,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-6",
+        "pid": 22784,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-7",
+        "pid": 13876,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-8",
+        "pid": 49136,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-9",
+        "pid": 50196,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-10",
+        "pid": 20756,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-11",
+        "pid": 22680,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-12",
+        "pid": 48892,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-13",
+        "pid": 28168,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-14",
+        "pid": 29300,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-15",
+        "pid": 48144,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-16",
+        "pid": 36312,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-17",
+        "pid": 49228,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-18",
+        "pid": 23680,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-19",
+        "pid": 44680,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-20",
+        "pid": 48404,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-21",
+        "pid": 45524,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-22",
+        "pid": 35108,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-23",
+        "pid": 47352,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-24",
+        "pid": 45872,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-25",
+        "pid": 50832,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-26",
+        "pid": 25972,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-27",
+        "pid": 51148,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-28",
+        "pid": 32308,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-29",
+        "pid": 30724,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-30",
+        "pid": 50688,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Worker-31",
+        "pid": 27824,
+        "alive": true,
+        "exitcode": null
+      },
+      {
+        "name": "Logger",
+        "pid": 50224,
+        "alive": true,
+        "exitcode": null
+      }
+    ]
+  },
+  "trainer_status": {
+    "updated_at": 1794859286.8993971,
+    "phase": "waiting_for_new_positions",
+    "step": 25864,
+    "games_completed": 16108,
+    "buffer_size": 100000,
+    "total_positions": 413835,
+    "samples_consumed": 3310592,
+    "sample_reuse_ratio": 7.9997873548636536,
+    "lr": 0.0001919181271962674
+  },
+  "inference_status": {
+    "updated_at": 1794859285.9463308,
+    "batches": 18181827,
+    "positions_inferred": 69976930,
+    "positions_per_second": 995.2,
+    "mean_batch_size": 3.8487292833662976,
+    "precision": "fp16",
+    "cuda_graphs": true,
+    "shared_memory": true,
+    "graph_buckets": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32
+    ],
+    "last_model_update": 1794859235.9477515,
+    "collection_ms": 0.15537556851972137,
+    "prediction_and_transfer_ms": 2.8557190739598077,
+    "publication_ms": 0.28617150964201793,
+    "cuda_memory_allocated_mb": 76.24853515625,
+    "cuda_memory_reserved_mb": 202.0
+  },
+  "process_audit": {
+    "training_main_pid": 10428,
+    "training_children_alive": 38,
+    "training_children_total": 38,
+    "evaluation": {
+      "launcher_pid": 31736,
+      "native_pid": 40104,
+      "status": "running",
+      "suite": "confirmation",
+      "checkpoint": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\model_weights\\model_weights_step_20500.pt",
+      "current_opponent": "greedy"
+    }
+  },
+  "data_audit": {
+    "games": 20,
+    "positions": 0,
+    "wrong_outcome_labels": 0,
+    "wrong_slice_labels": 0,
+    "invalid_policies": 0,
+    "illegal_actions": 0
+  },
+  "data_audit_checked_at": 1794859287.2718768,
+  "opening_mix_last_800_games": {
+    "book": 619,
+    "free": 181,
+    "white_rate_book": 0.372,
+    "white_rate_free": 0.343,
+    "avg_moves": 33.1
+  },
+  "opening_trend": {
+    "v22500_book": 0.358,
+    "v22500_free": 0.36,
+    "v25000_book": 0.384,
+    "v25000_free": 0.326
+  },
+  "disk": {
+    "drive": "E:",
+    "free_gb": 7.29
+  },
+  "evaluation": {
+    "confirmation": {
+      "launcher_pid": 31736,
+      "checkpoint": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\model_weights\\model_weights_step_20500.pt",
+      "suite": "confirmation",
+      "review_only": false,
+      "started_at": 1794844930.65162,
+      "stdout": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\evaluations\\model_weights_step_20500_confirmation_20261117_000146_stdout.log",
+      "stderr": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\evaluations\\model_weights_step_20500_confirmation_20261117_000146_stderr.log",
+      "native_pid": 40104,
+      "status": "running",
+      "cpu_threads": 1,
+      "simulations": 256,
+      "protocol": "fifty_fixed_openings_swapped_colors_renju_v1",
+      "current_opponent": "greedy",
+      "updated_at": 1794844930.6526246
+    },
+    "greedy_partial": {
+      "games": 89,
+      "wins": 78,
+      "draws": 1,
+      "losses": 10,
+      "score_rate": 0.8820224719101124,
+      "by_color": {
+        "1": {
+          "wins": 39,
+          "draws": 1,
+          "losses": 5,
+          "n": 45,
+          "score_rate": 0.8777777777777778
+        },
+        "-1": {
+          "wins": 39,
+          "draws": 0,
+          "losses": 5,
+          "n": 44,
+          "score_rate": 0.8863636363636364
+        }
+      }
+    },
+    "greedy_target": 0.7,
+    "on_track": true,
+    "initial_match": "not started",
+    "stop_written": false,
+    "note": "88 of 100 greedy games done at 88.6%; the initial-model match follows. Acceptance requires both matches and will write STOP on pass."
+  },
+  "goal": {
+    "next_nonblocking_review_step": 100000,
+    "pause_on_no_improvement": false,
+    "minimum_score_rate": {
+      "fixed_greedy_reference_v1": 0.7,
+      "immutable_initial_model": 0.6
+    }
+  },
+  "old_clean_v2_STOP_preserved": true,
+  "previous_supervision_checked_at": 1794841200.0,
+  "notification_decision": "NOTIFY",
+  "notification_reason": "Scheduled check: training healthy at 25840 steps; confirmation at step20500 is 88/100 greedy games with 78W-10L (88.6%, both colours 39-5), well above the 70% bar; the initial-model match is next."
+}

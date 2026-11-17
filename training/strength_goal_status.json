@@ -1,0 +1,10 @@
+{
+  "updated_at": 1794865542.5093122,
+  "checkpoint": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\model_weights\\model_weights_step_20500.pt",
+  "status": "reached",
+  "results": [
+    "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\evaluations\\model_weights_step_20500_sims256_confirmation50.json",
+    "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\evaluations\\model_weights_step_20500_sims256_confirmation50_vs_initial.json"
+  ],
+  "sample_size_per_opponent": 100
+}

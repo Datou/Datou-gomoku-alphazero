@@ -1,0 +1,14 @@
+# Core
+torch>=2.0
+numpy
+
+# Training diagnostics / plots
+matplotlib
+seaborn
+tqdm
+
+# ONNX export and validation
+onnx
+onnxruntime
+
+# Browser player assets are static; no Flask/Node server is required.

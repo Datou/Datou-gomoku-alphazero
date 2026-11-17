@@ -1,0 +1,211 @@
+{
+  "checkpoint": "E:\\Datou-gomoku-muzero\\outputs\\renju_v2\\model_weights\\model_weights_step_2500.pt",
+  "checkpoint_sha256": "2382ad3b14f8592362677d566bc9405ea1ea61eeb99aa71fbab922b7cc5f86ef",
+  "checkpoint_metadata_sha256": "a950707c1b18dab5efa09fc6f02f597e7bba7ccbbf74bd2f571de339fe0ca512",
+  "simulations": 128,
+  "forced_move_pruning": false,
+  "cpu_threads": 1,
+  "opponent": "immutable_initial_model",
+  "opponent_sha256": "dfc1acea045103e2d521fc0d7a9835a8fc4bce2e8cc1b8f9cbbfdee91719283f",
+  "protocol": "four_fixed_openings_swapped_colors_renju_v1",
+  "ruleset_id": "renju_forbidden_v1",
+  "openings_sha256": "193aa4e593b0658558ab20b0494b07397deca2923f9b57ad3878bb13fc7834ef",
+  "expected_games": 8,
+  "engine_source_sha256": {
+    "mcts.py": "b3c5da35ae6aa2a5a5683cd481c9a8980d620434e6a2a1cb5fb7120f57a41ce1",
+    "game.py": "4e2d8401377d42ffb0871ed5c33b8a389d68d8ceb1ec2eaf068a684fd143a6cb",
+    "renju_rules.py": "ef1d508ed4444edbedcb7f4c0453e3e172649c234afd2e16826fc2e310665ade",
+    "network.py": "9f9648354c6fff3a974ae35fcd3132661f386e96462de1552df0e04ce812b97d"
+  },
+  "search": {
+    "c_puct": 2.0,
+    "action_radius": 2,
+    "root_noise": false,
+    "sample_moves": false
+  },
+  "status": "complete",
+  "evaluated_at": 1794770056.6828952,
+  "games": [
+    {
+      "opening": 0,
+      "ai_color": 1,
+      "winner": 1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        113,
+        127,
+        96,
+        97,
+        81,
+        142,
+        50,
+        82
+      ]
+    },
+    {
+      "opening": 0,
+      "ai_color": -1,
+      "winner": -1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        113,
+        127,
+        96,
+        64,
+        97,
+        33,
+        98,
+        1,
+        95,
+        0,
+        94
+      ]
+    },
+    {
+      "opening": 1,
+      "ai_color": 1,
+      "winner": 1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        98,
+        126,
+        128,
+        113,
+        96,
+        111,
+        159,
+        110,
+        64,
+        114
+      ]
+    },
+    {
+      "opening": 1,
+      "ai_color": -1,
+      "winner": -1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        98,
+        126,
+        128,
+        109,
+        113,
+        67,
+        143,
+        35,
+        158
+      ]
+    },
+    {
+      "opening": 2,
+      "ai_color": 1,
+      "winner": 1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        128,
+        98,
+        114,
+        97,
+        96,
+        127,
+        64,
+        82,
+        48,
+        142
+      ]
+    },
+    {
+      "opening": 2,
+      "ai_color": -1,
+      "winner": -1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        128,
+        98,
+        114,
+        96,
+        97,
+        64,
+        113,
+        33,
+        129,
+        1,
+        130,
+        0,
+        131,
+        3,
+        127
+      ]
+    },
+    {
+      "opening": 3,
+      "ai_color": 1,
+      "winner": 1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        142,
+        113,
+        80,
+        111,
+        48,
+        114,
+        16,
+        110
+      ]
+    },
+    {
+      "opening": 3,
+      "ai_color": -1,
+      "winner": -1,
+      "ai_result": 1,
+      "actions": [
+        112,
+        142,
+        113,
+        80,
+        48,
+        111,
+        16,
+        96,
+        0,
+        81,
+        1,
+        66,
+        3,
+        126
+      ]
+    }
+  ],
+  "wins": 8,
+  "draws": 0,
+  "losses": 0,
+  "n": 8,
+  "score_rate": 1.0,
+  "by_color": {
+    "1": {
+      "wins": 4,
+      "draws": 0,
+      "losses": 0,
+      "n": 4,
+      "score_rate": 1.0
+    },
+    "-1": {
+      "wins": 4,
+      "draws": 0,
+      "losses": 0,
+      "n": 4,
+      "score_rate": 1.0
+    }
+  },
+  "paired_bootstrap_95_score_interval": [
+    1.0,
+    1.0
+  ]
+}

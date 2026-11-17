@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>五子棋 AlphaZero · 禁手规则</title>
+  <meta name="description" content="在浏览器中直接与 AlphaZero 五子棋模型对战，完整实现黑方禁手规则。">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/ort.all.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>五子棋 AlphaZero</h1>
+      <p>浏览器内本地推理 · 完整禁手规则（长连 / 四四 / 三三）· 模型不会上传任何棋局</p>
+    </header>
+
+    <div class="layout">
+      <section class="board-card">
+        <canvas id="board" width="600" height="600" aria-label="五子棋棋盘"></canvas>
+      </section>
+
+      <aside class="panel">
+        <div class="card">
+          <h2>对局</h2>
+          <div class="status" id="status">正在加载模型…<span class="sub" id="status-sub">首次加载约 10–30 秒</span></div>
+          <div class="meta">
+            <span>推理后端</span><span id="backend">—</span>
+          </div>
+          <div class="meta">
+            <span>模拟次数 / 手</span><span id="sims-label">—</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>设置</h2>
+          <label class="field">模型（训练步数）
+            <select id="model-select">
+              <option value="20500">20,500 · 棋力验收版本</option>
+              <option value="27500">27,500 · 最终训练版本</option>
+            </select>
+          </label>
+          <label class="field">你执
+            <select id="color-select">
+              <option value="1">黑棋（先手，有禁手）</option>
+              <option value="-1">白棋（后手）</option>
+            </select>
+          </label>
+          <label class="field">每步模拟次数
+            <select id="sims-select">
+              <option value="64">64 · 快</option>
+              <option value="128" selected>128 · 平衡</option>
+              <option value="256">256 · 更强但更慢</option>
+            </select>
+          </label>
+          <button id="new-game" type="button">开始新对局</button>
+        </div>
+
+        <div class="card rules">
+          <h2>规则</h2>
+          <ul>
+            <li>黑棋先手，必须恰好连成五子获胜。</li>
+            <li>黑棋长连、四四、三三均为禁手，落子即判负。</li>
+            <li>白棋连成五子或以上即获胜。</li>
+            <li>棋盘下满判和。</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      模型由 AlphaZero 自对弈训练得到；页面通过 ONNX Runtime Web 在本地运行。
+      运行时和模型均已随页面托管，不需要服务器或外部 CDN。
+    </footer>
+  </div>
+
+  <script src="js/renju.js"></script>
+  <script src="js/mcts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

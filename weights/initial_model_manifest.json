@@ -1,0 +1,8 @@
+{
+  "target_ruleset_id": "renju_forbidden_v1",
+  "seed_checkpoint": "model_weights/model_weights_step_0.pt",
+  "seed_sha256": "dfc1acea045103e2d521fc0d7a9835a8fc4bce2e8cc1b8f9cbbfdee91719283f",
+  "initialization": "fresh_random_no_warmstart",
+  "created_at": "2026-11-16T00:19:03.5677441+08:00",
+  "note": "Immutable random step-0 reference for evaluation only; not a weight transfer."
+}
