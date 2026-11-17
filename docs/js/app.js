@@ -8,8 +8,8 @@
   const LETTERS = 'ABCDEFGHIJKLMNO';
 
   const MODELS = {
-    '20500': { url: 'models/alphazero_20500.onnx', label: 'alphazero_20500' },
-    '27702': { url: 'models/alphazero_27702.onnx', label: 'alphazero_27702' },
+    '20500': { url: 'models/alphazero_20500.onnx', label: 'alphazero_20500', size: 10178067 },
+    '27702': { url: 'models/alphazero_27702.onnx', label: 'alphazero_27702', size: 10178067 },
   };
 
   const REASON_TEXT = {
@@ -22,6 +22,10 @@
   const ctx = canvas.getContext('2d');
   const statusEl = document.getElementById('status');
   const statusSubEl = document.getElementById('status-sub');
+  const progressEl = document.getElementById('load-progress');
+  const progressTrackEl = document.getElementById('load-progress-track');
+  const progressBarEl = document.getElementById('load-progress-bar');
+  const progressTextEl = document.getElementById('load-progress-text');
   const backendEl = document.getElementById('backend');
   const simsLabelEl = document.getElementById('sims-label');
   const modelSelect = document.getElementById('model-select');
@@ -60,6 +64,60 @@
     colorSelect.disabled = busy;
     simsSelect.disabled = busy;
     newGameButton.disabled = busy;
+  }
+
+  function setProgress(fraction, text, indeterminate = false) {
+    if (fraction === null && !indeterminate) {
+      progressEl.hidden = true;
+      progressEl.classList.remove('indeterminate');
+      progressBarEl.style.width = '0%';
+      progressTrackEl.setAttribute('aria-valuenow', '0');
+      return;
+    }
+    progressEl.hidden = false;
+    progressEl.classList.toggle('indeterminate', indeterminate);
+    if (indeterminate) {
+      progressBarEl.style.width = '35%';
+      progressTrackEl.removeAttribute('aria-valuenow');
+    } else {
+      const percent = Math.max(0, Math.min(1, fraction));
+      progressBarEl.style.width = `${percent * 100}%`;
+      progressTrackEl.setAttribute('aria-valuenow', String(Math.round(percent * 100)));
+    }
+    progressTextEl.textContent = text || '';
+  }
+
+  async function fetchModelWithProgress(url, expectedTotal, onProgress) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`模型下载失败（HTTP ${response.status}）`);
+    }
+    const total = Number(response.headers.get('Content-Length')) || expectedTotal || 0;
+    if (!response.body || total <= 0) {
+      onProgress(null, 0, 0);
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      onProgress(1, bytes.byteLength, bytes.byteLength);
+      return bytes;
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      onProgress(Math.min(received / total, 0.99), received, total);
+    }
+    const bytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    onProgress(1, received, total);
+    return bytes;
   }
 
   function updateMeta() {
@@ -312,10 +370,12 @@
     state.over = false;
     state.thinking = false;
     setBusy(true);
-    setStatus('正在加载模型…', `${config.label} · 约 9.7 MB`);
+    setStatus('正在加载模型…', `${config.label} · 准备下载`);
+    setProgress(0, '准备下载模型…');
+    let lastPercent = -1;
     try {
       if (typeof ort === 'undefined') {
-        throw new Error('ONNX Runtime Web 加载失败，请检查网络或 CDN 访问');
+        throw new Error('ONNX Runtime Web 加载失败，请检查静态资源是否完整');
       }
       if (ort.env && ort.env.wasm) {
         ort.env.wasm.numThreads = 1;
@@ -324,11 +384,28 @@
       }
       if (ort.env) ort.env.logLevel = 'error';
 
+      const modelBytes = await fetchModelWithProgress(config.url, config.size, (fraction, received, total) => {
+        if (fraction === null || !total) {
+          setProgress(null, `下载 ${config.label}…`, true);
+          return;
+        }
+        const percent = Math.round(fraction * 100);
+        if (percent === lastPercent) return;
+        lastPercent = percent;
+        const receivedMb = (received / 1048576).toFixed(1);
+        const totalMb = (total / 1048576).toFixed(1);
+        setStatus('正在加载模型…', `${config.label} · ${receivedMb} / ${totalMb} MB`);
+        setProgress(fraction, `下载模型 ${receivedMb} / ${totalMb} MB · ${percent}%`);
+      });
+
+      setStatus('正在加载模型…', `${config.label} · 正在初始化推理引擎`);
+      setProgress(null, '正在初始化推理引擎…', true);
+
       let session = null;
       let backend = '';
       if (typeof navigator !== 'undefined' && navigator.gpu) {
         try {
-          session = await ort.InferenceSession.create(config.url, {
+          session = await ort.InferenceSession.create(modelBytes, {
             executionProviders: ['webgpu'],
             graphOptimizationLevel: 'all',
           });
@@ -339,7 +416,7 @@
         }
       }
       if (!session) {
-        session = await ort.InferenceSession.create(config.url, {
+        session = await ort.InferenceSession.create(modelBytes, {
           executionProviders: ['wasm'],
           graphOptimizationLevel: 'all',
         });
@@ -349,12 +426,17 @@
       state.backend = backend;
       state.mcts = new AlphaZeroMCTS(session, { simulations: state.simulations });
       updateMeta();
+      setProgress(1, '模型加载完成');
       newGame();
+      setTimeout(() => {
+        if (!state.thinking) setProgress(null);
+      }, 700);
     } catch (error) {
       console.error(error);
       state.session = null;
       state.mcts = null;
       backendEl.textContent = '—';
+      setProgress(null);
       setStatus('模型加载失败', String(error && error.message ? error.message : error), 'error');
     } finally {
       if (!state.thinking) setBusy(false);
