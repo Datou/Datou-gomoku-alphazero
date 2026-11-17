@@ -20,7 +20,7 @@
 | 原始路径 | 仓库路径 |
 |---|---|
 | `outputs/renju_v2/model_weights/model_weights_step_20500.pt` | `weights/alphazero_20500.pt` |
-| `outputs/renju_v2/model_weights/model_weights_step_27500.pt` | `weights/alphazero_27500.pt` |
+| `outputs/renju_v2/training_state.db`（step 27,702 的 `model_state_dict`） | `weights/alphazero_27702.pt` |
 | `outputs/renju_v2/initial_model.pt` | `weights/initial_model.pt` |
 | `outputs/renju_v2/run_config.json` | `training/run_config.json` |
 | `outputs/renju_v2/evaluations/*.json` | `training/evaluations/*.json` |

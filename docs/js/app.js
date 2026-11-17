@@ -9,7 +9,7 @@
 
   const MODELS = {
     '20500': { url: 'models/alphazero_20500.onnx', label: 'alphazero_20500' },
-    '27500': { url: 'models/alphazero_27500.onnx', label: 'alphazero_27500' },
+    '27702': { url: 'models/alphazero_27702.onnx', label: 'alphazero_27702' },
   };
 
   const REASON_TEXT = {
