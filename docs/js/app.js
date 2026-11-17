@@ -25,7 +25,6 @@
   const progressEl = document.getElementById('load-progress');
   const progressTrackEl = document.getElementById('load-progress-track');
   const progressBarEl = document.getElementById('load-progress-bar');
-  const progressTextEl = document.getElementById('load-progress-text');
   const backendEl = document.getElementById('backend');
   const simsLabelEl = document.getElementById('sims-label');
   const modelSelect = document.getElementById('model-select');
@@ -77,7 +76,7 @@
     updateTurnHighlight();
   }
 
-  function setProgress(fraction, text, indeterminate = false) {
+  function setProgress(fraction, indeterminate = false) {
     if (fraction === null && !indeterminate) {
       progressEl.hidden = true;
       progressEl.classList.remove('indeterminate');
@@ -95,7 +94,6 @@
       progressBarEl.style.width = `${percent * 100}%`;
       progressTrackEl.setAttribute('aria-valuenow', String(Math.round(percent * 100)));
     }
-    progressTextEl.textContent = text || '';
   }
 
   async function fetchModelWithProgress(url, expectedTotal, onProgress) {
@@ -405,7 +403,7 @@
     state.thinking = false;
     setBusy(true);
     setStatus('正在加载模型…', `${config.label} · 准备下载`);
-    setProgress(0, '准备下载模型…');
+    setProgress(0);
     let lastPercent = -1;
     try {
       if (typeof ort === 'undefined') {
@@ -420,7 +418,8 @@
 
       const modelBytes = await fetchModelWithProgress(config.url, config.size, (fraction, received, total) => {
         if (fraction === null || !total) {
-          setProgress(null, `下载 ${config.label}…`, true);
+          setStatus('正在加载模型…', `${config.label} · 下载中…`);
+          setProgress(null, true);
           return;
         }
         const percent = Math.round(fraction * 100);
@@ -429,11 +428,11 @@
         const receivedMb = (received / 1048576).toFixed(1);
         const totalMb = (total / 1048576).toFixed(1);
         setStatus('正在加载模型…', `${config.label} · ${receivedMb} / ${totalMb} MB`);
-        setProgress(fraction, `下载模型 ${receivedMb} / ${totalMb} MB · ${percent}%`);
+        setProgress(fraction);
       });
 
       setStatus('正在加载模型…', `${config.label} · 正在初始化推理引擎`);
-      setProgress(null, '正在初始化推理引擎…', true);
+      setProgress(null, true);
 
       let session = null;
       let backend = '';
@@ -460,7 +459,7 @@
       state.backend = backend;
       state.mcts = new AlphaZeroMCTS(session, { simulations: state.simulations });
       updateMeta();
-      setProgress(1, '模型加载完成');
+      setProgress(1);
       newGame();
     } catch (error) {
       console.error(error);

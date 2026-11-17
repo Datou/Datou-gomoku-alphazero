@@ -275,13 +275,6 @@ button.danger {
   animation: load-progress-slide 1.25s ease-in-out infinite;
 }
 
-.load-progress-text {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
 @keyframes load-progress-slide {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(320%); }
