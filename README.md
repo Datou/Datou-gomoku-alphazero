@@ -200,7 +200,7 @@ python tools/match_models.py \
   --openings 10 --sims 32 --device cpu
 ```
 
-使用 10 个 RIF 开局，每个开局双方各执一次，共 20 局；搜索是确定性的（无根噪声、无温度采样），保证同一开局可复现。原始结果在 `training/evaluations/match_20500_vs_27702_sims32_openings10.json`。
+使用 10 个 RIF 开局，每个开局双方各执一次，共 20 局；搜索是确定性的（无根噪声、无温度采样），保证同一开局可复现。原始结果见 [`training/evaluations/match_20500_vs_27702_sims32_openings10.json`](training/evaluations/match_20500_vs_27702_sims32_openings10.json)。
 
 ### 测试
 
