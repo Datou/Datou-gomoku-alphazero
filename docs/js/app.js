@@ -92,7 +92,10 @@
     if (!response.ok) {
       throw new Error(`模型下载失败（HTTP ${response.status}）`);
     }
-    const total = Number(response.headers.get('Content-Length')) || expectedTotal || 0;
+    const headerTotal = Number(response.headers.get('Content-Length')) || 0;
+    // GitHub Pages may omit Content-Length or report the compressed transfer
+    // size while fetch hands us decompressed bytes. Prefer the known ONNX size.
+    const total = expectedTotal || headerTotal || 0;
     if (!response.body || total <= 0) {
       onProgress(null, 0, 0);
       const buffer = await response.arrayBuffer();
