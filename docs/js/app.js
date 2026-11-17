@@ -32,6 +32,9 @@
   const colorSelect = document.getElementById('color-select');
   const simsSelect = document.getElementById('sims-select');
   const newGameButton = document.getElementById('new-game');
+  const confirmModal = document.getElementById('confirm-modal');
+  const confirmYes = document.getElementById('confirm-yes');
+  const confirmNo = document.getElementById('confirm-no');
 
   const state = {
     game: new RenjuGame(),
@@ -55,6 +58,13 @@
       span.textContent = sub;
       statusEl.appendChild(span);
     }
+    updateTurnHighlight();
+  }
+
+  function updateTurnHighlight() {
+    const isYourTurn = Boolean(state.session) && !state.over && !state.thinking
+      && state.game.currentPlayer === state.humanColor;
+    statusEl.classList.toggle('your-turn', isYourTurn);
   }
 
   function setBusy(busy) {
@@ -64,6 +74,7 @@
     colorSelect.disabled = busy;
     simsSelect.disabled = busy;
     newGameButton.disabled = busy;
+    updateTurnHighlight();
   }
 
   function setProgress(fraction, text, indeterminate = false) {
@@ -291,6 +302,7 @@
 
   async function aiTurn() {
     if (state.over || state.thinking || !state.mcts) return;
+    setProgress(null);
     const generation = state.generation;
     const started = performance.now();
     setBusy(true);
@@ -348,6 +360,8 @@
   }
 
   function newGame() {
+    closeConfirmModal();
+    setProgress(null);
     state.generation += 1;
     state.game = new RenjuGame();
     state.over = false;
@@ -361,6 +375,23 @@
     state.mcts = new AlphaZeroMCTS(state.session, { simulations: state.simulations });
     setStatus(turnLabel(), state.humanColor === 1 ? '你执黑先行' : 'AI 执黑先行');
     if (state.humanColor === -1) aiTurn();
+  }
+
+  function openConfirmModal() {
+    confirmModal.hidden = false;
+    confirmNo.focus();
+  }
+
+  function closeConfirmModal() {
+    confirmModal.hidden = true;
+  }
+
+  function requestNewGame() {
+    if (!state.session || state.over || state.game.moveCount === 0) {
+      newGame();
+      return;
+    }
+    openConfirmModal();
   }
 
   async function loadModel(key) {
@@ -431,9 +462,6 @@
       updateMeta();
       setProgress(1, '模型加载完成');
       newGame();
-      setTimeout(() => {
-        if (!state.thinking) setProgress(null);
-      }, 700);
     } catch (error) {
       console.error(error);
       state.session = null;
@@ -448,7 +476,18 @@
 
   canvas.addEventListener('click', onBoardClick);
   window.addEventListener('resize', setupCanvas);
-  newGameButton.addEventListener('click', newGame);
+  newGameButton.addEventListener('click', requestNewGame);
+  confirmYes.addEventListener('click', () => {
+    closeConfirmModal();
+    newGame();
+  });
+  confirmNo.addEventListener('click', closeConfirmModal);
+  confirmModal.addEventListener('click', (event) => {
+    if (event.target === confirmModal) closeConfirmModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !confirmModal.hidden) closeConfirmModal();
+  });
   simsSelect.addEventListener('change', () => {
     state.simulations = Number(simsSelect.value);
     if (state.mcts) state.mcts.simulations = state.simulations;

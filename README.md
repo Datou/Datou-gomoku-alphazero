@@ -250,9 +250,10 @@ python main.py
 
 ```bash
 python -m unittest discover -s tests -v
+node tests/test_web_mcts.js
 ```
 
-测试覆盖禁手边界、PUCT 符号回溯、价值目标、数据切片、SQLite 状态恢复、RIF 开局合法性和 ONNX 推理一致性。
+测试覆盖禁手边界、PUCT 符号回溯、价值目标、数据切片、SQLite 状态恢复、RIF 开局合法性和 ONNX 推理一致性；`node tests/test_web_mcts.js` 专门检查浏览器 MCTS 在只有一个成五点时必须落子成五。
 
 ## 评估与复现
 
@@ -312,6 +313,8 @@ python tools/arena.py \
 - 模型输入 `obs: float32[1,3,15,15]`，输出 `policy[1,225]`、`value[1,1]`、`moves_left[1,1]`。
 
 浏览器版规则与 Python 版做过逐点对比：在 1,609 个随机局面点、8,000 个密集局面点和 15,000 个定向三三局面上，禁手原因完全一致；候选着法集合与终局判定也在 264 个对局快照上一致。
+
+浏览器 MCTS 的值始终以“当前行棋方”的视角存储，回溯跨过一条边时变号。因此自己形成五连的着法在叶节点是终局 `+1`，父节点会把它记为对自己有利的 `+1`；在这套符号约定下，128 次模拟已经足够发现一步成五，不需要 256 次。
 
 ## 已知限制
 

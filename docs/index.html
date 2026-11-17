@@ -82,6 +82,17 @@
     </footer>
   </div>
 
+  <div class="modal-mask" id="confirm-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">要结束当前对局吗？</h2>
+      <p>开始新对局会清空当前棋盘，当前进度不会保留。</p>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="confirm-no">否，继续</button>
+        <button type="button" class="danger" id="confirm-yes">是，结束</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/renju.js"></script>
   <script src="js/mcts.js"></script>
   <script src="js/app.js"></script>

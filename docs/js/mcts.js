@@ -155,17 +155,23 @@ class AlphaZeroMCTS {
       if (node.terminal) value = node.terminalValue;
       else if (node.visits > 0) value = node.meanValue();
       else value = node.initialValue;
+      // Values are stored from the perspective of the player to move at each
+      // node. A value crossing one edge belongs to the other player, so flip
+      // its sign before adding it to the parent's edge statistics.
+      let backedUp = value;
       for (let i = path.length - 1; i >= 0; i -= 1) {
         const current = path[i];
         current.visits += 1;
-        current.valueSum += value;
+        current.valueSum += backedUp;
         if (current.parent) {
           const index = current.parent.policyIndex.get(current.action);
           if (index !== undefined) {
             current.parent.childVisits[index] += 1;
-            current.parent.childValues[index] += value;
+            // childValues are Q values from the parent's point of view.
+            current.parent.childValues[index] += -backedUp;
           }
         }
+        backedUp = -backedUp;
       }
       if (simulation % 8 === 7) await new Promise((resolve) => setTimeout(resolve, 0));
     }

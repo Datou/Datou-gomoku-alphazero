@@ -146,6 +146,106 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .status.error { color: var(--danger); }
 .status.win { color: var(--accent-2); }
 
+.status.your-turn {
+  color: #b9ffe4;
+  animation: turn-breathe 2.2s ease-in-out infinite;
+}
+
+.status.your-turn::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 10px rgba(126, 224, 184, 0.85);
+  animation: turn-dot 2.2s ease-in-out infinite;
+}
+
+@keyframes turn-breathe {
+  0%, 100% { text-shadow: 0 0 0 rgba(126, 224, 184, 0); }
+  50% { text-shadow: 0 0 12px rgba(126, 224, 184, 0.8), 0 0 28px rgba(83, 179, 255, 0.3); }
+}
+
+@keyframes turn-dot {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status.your-turn,
+  .status.your-turn::before {
+    animation: none;
+  }
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 8, 14, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.modal-mask[hidden] {
+  display: none !important;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(160deg, #202a36, #141b24);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  animation: modal-in 0.16s ease-out;
+}
+
+.modal-card h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+.modal-card p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-actions button {
+  flex: 1;
+  width: auto;
+}
+
+button.ghost {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text);
+}
+
+button.danger {
+  border-color: rgba(255, 122, 122, 0.45);
+  background: linear-gradient(180deg, #9f3e48, #792a33);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
 .load-progress {
   margin: 10px 0 2px;
 }
