@@ -1,0 +1,545 @@
+{
+  "a": "weights/alphazero_20500.pt",
+  "b": "weights/alphazero_27702.pt",
+  "simulations": 32,
+  "device": "cpu",
+  "openings": 10,
+  "start_opening": 0,
+  "ruleset_id": "renju_forbidden_v1",
+  "protocol": "rif_openings_swapped_colors_deterministic_v1",
+  "games": [
+    {
+      "opening": 0,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "a_color": -1,
+      "winner": -1,
+      "a_result": 1,
+      "moves": 22,
+      "seconds": 25.08
+    },
+    {
+      "opening": 0,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "a_color": 1,
+      "winner": 1,
+      "a_result": 1,
+      "moves": 27,
+      "seconds": 41.0
+    },
+    {
+      "opening": 1,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 37,
+      "seconds": 56.55
+    },
+    {
+      "opening": 1,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 20,
+      "seconds": 22.86
+    },
+    {
+      "opening": 2,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          7
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 51,
+      "seconds": 78.5
+    },
+    {
+      "opening": 2,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          7
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 28,
+      "seconds": 37.1
+    },
+    {
+      "opening": 3,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          8
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 47,
+      "seconds": 69.97
+    },
+    {
+      "opening": 3,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          8
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 28,
+      "seconds": 33.63
+    },
+    {
+      "opening": 4,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          9
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 49,
+      "seconds": 77.28
+    },
+    {
+      "opening": 4,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          9
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 52,
+      "seconds": 69.5
+    },
+    {
+      "opening": 5,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          5
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 43,
+      "seconds": 66.28
+    },
+    {
+      "opening": 5,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          5
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 32,
+      "seconds": 39.32
+    },
+    {
+      "opening": 6,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          6
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 65,
+      "seconds": 113.86
+    },
+    {
+      "opening": 6,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          6
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 42,
+      "seconds": 58.04
+    },
+    {
+      "opening": 7,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          7
+        ]
+      ],
+      "a_color": -1,
+      "winner": -1,
+      "a_result": 1,
+      "moves": 24,
+      "seconds": 30.06
+    },
+    {
+      "opening": 7,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          7
+        ]
+      ],
+      "a_color": 1,
+      "winner": -1,
+      "a_result": -1,
+      "moves": 44,
+      "seconds": 57.45
+    },
+    {
+      "opening": 8,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          8
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 27,
+      "seconds": 40.41
+    },
+    {
+      "opening": 8,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          8
+        ]
+      ],
+      "a_color": 1,
+      "winner": 1,
+      "a_result": 1,
+      "moves": 31,
+      "seconds": 48.88
+    },
+    {
+      "opening": 9,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          9
+        ]
+      ],
+      "a_color": -1,
+      "winner": 1,
+      "a_result": -1,
+      "moves": 51,
+      "seconds": 75.22
+    },
+    {
+      "opening": 9,
+      "opening_stones": [
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          6,
+          9
+        ]
+      ],
+      "a_color": 1,
+      "winner": 1,
+      "a_result": 1,
+      "moves": 23,
+      "seconds": 30.08
+    }
+  ],
+  "wins": 5,
+  "draws": 0,
+  "losses": 15,
+  "n": 20,
+  "score_rate": 0.25,
+  "by_color": {
+    "1": {
+      "wins": 3,
+      "draws": 0,
+      "losses": 7,
+      "n": 10,
+      "score_rate": 0.3
+    },
+    "-1": {
+      "wins": 2,
+      "draws": 0,
+      "losses": 8,
+      "n": 10,
+      "score_rate": 0.2
+    }
+  },
+  "by_opening": {
+    "0": {
+      "wins": 2,
+      "draws": 0,
+      "losses": 0,
+      "n": 2,
+      "score_rate": 1.0
+    },
+    "1": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "2": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "3": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "4": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "5": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "6": {
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "n": 2,
+      "score_rate": 0.0
+    },
+    "7": {
+      "wins": 1,
+      "draws": 0,
+      "losses": 1,
+      "n": 2,
+      "score_rate": 0.5
+    },
+    "8": {
+      "wins": 1,
+      "draws": 0,
+      "losses": 1,
+      "n": 2,
+      "score_rate": 0.5
+    },
+    "9": {
+      "wins": 1,
+      "draws": 0,
+      "losses": 1,
+      "n": 2,
+      "score_rate": 0.5
+    }
+  }
+}
